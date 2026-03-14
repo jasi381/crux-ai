@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import type { InterviewType, InterviewPersonality } from '@/types/interview';
 
@@ -20,18 +20,13 @@ export default function Home() {
   const router = useRouter();
   const [selectedType, setSelectedType] = useState<InterviewType>('DSA');
   const [selectedPersonality, setSelectedPersonality] = useState<InterviewPersonality>('Friendly');
-  const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // Precompile the interview page in the background while user is on home screen
+  useEffect(() => { router.prefetch('/interview'); }, [router]);
 
-  const handleStart = () => {
-    const params = new URLSearchParams({ type: selectedType, personality: selectedPersonality });
-    router.push(`/interview?${params}`);
+  const navigate = () => {
+    window.location.href = `/interview?type=${encodeURIComponent(selectedType)}&personality=${encodeURIComponent(selectedPersonality)}`;
   };
-
-  if (!mounted) return null;
 
   return (
     <div className="min-h-screen bg-background text-white selection:bg-primary/30 p-4 md:p-8 flex items-center justify-center">
@@ -130,10 +125,10 @@ export default function Home() {
              </div>
 
              <button
-               onClick={handleStart}
-               className="tactile-button h-24 rounded-[2rem] bg-white group relative overflow-hidden shadow-2xl"
+               onClick={navigate}
+               className="tactile-button h-24 rounded-[2rem] bg-white group relative overflow-hidden shadow-2xl w-full"
              >
-                <div className="absolute inset-0 bg-gradient-to-r from-primary to-secondary opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="absolute inset-0 bg-gradient-to-r from-primary to-secondary opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
                 <div className="relative z-10 flex items-center justify-center gap-4">
                   <span className="text-background group-hover:text-white font-black text-xl transition-colors">INITIATE_SESSION</span>
                   <div className="w-10 h-10 rounded-full bg-background flex items-center justify-center group-hover:scale-110 transition-transform">

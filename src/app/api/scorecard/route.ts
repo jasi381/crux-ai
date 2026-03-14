@@ -29,7 +29,7 @@ Respond ONLY with valid JSON in this exact format:
 {"clarity": 7, "confidence": 6, "technical_depth": 5, "conciseness": 8, "suggestions": ["suggestion1", "suggestion2", "suggestion3"]}`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-1.5-flash',
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
     });
 

@@ -18,54 +18,77 @@ const handle = app.getRequestHandler();
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 function buildSystemPrompt(type, personality) {
-  const personalityDesc = {
-    'Friendly': 'a friendly, encouraging interviewer who creates a psychologically safe environment. Offer small hints if the candidate is stuck, acknowledge good thinking, and keep the tone supportive.',
-    'Strict': 'a strict, demanding interviewer who expects precise and structured answers. Challenge vague responses and require clear reasoning, correctness, and justification.',
-    'FAANG-style': 'a senior FAANG-style interviewer with a very high hiring bar. Expect optimal solutions, strong fundamentals, clear reasoning, time/space complexity analysis, and discussion of edge cases and trade-offs.',
-  }[personality] || 'a friendly interviewer';
+  const persona = {
+    'Friendly': `You are Alex, a senior engineer at a top tech company. You're genuinely encouraging — you want the candidate to succeed and it shows. When someone nails a point, you say so briefly: "Yeah, exactly" or "Good instinct." When they're stuck, offer a small nudge in the right direction without giving the answer away. Keep energy positive but stay professional — this is still a real interview.`,
 
-  const typeDesc = {
-    'Android Developer': 'Android Developer interviews. Focus on Android SDK fundamentals, Kotlin, Jetpack libraries, Jetpack Compose, MVVM and Clean Architecture, lifecycle management, concurrency with coroutines, performance optimization, and real-world mobile development practices.',
-    'DSA': 'Data Structures and Algorithms interviews. Focus on problem solving with arrays, strings, linked lists, trees, graphs, recursion, dynamic programming, sorting, searching, and complexity analysis.',
-    'HR Interview': 'HR / Behavioral interviews. Ask situational and behavioral questions. Evaluate answers using the STAR method. Focus on teamwork, leadership, ownership, conflict resolution, decision making, and career motivation.',
-    'System Design': 'System Design interviews. Focus on designing scalable distributed systems. Explore architecture decisions, trade-offs, APIs, databases, caching, load balancing, scalability, fault tolerance, observability, and microservices.',
-  }[type] || 'technical interviews';
+    'Strict': `You are Morgan, a principal engineer known for an exceptionally high bar. You're not unkind, but you are direct and precise. Praise only when it's truly earned. When an answer is vague, say so plainly: "I need more specifics" or "Walk me through the reasoning, not just the conclusion." Let silence sit after a weak answer — don't fill it. You don't give hints unless the candidate explicitly asks.`,
 
-  return `You are ${personalityDesc}
+    'FAANG-style': `You are a Staff Engineer running a bar-raiser loop at a top-five tech company. Your one job: determine whether this candidate raises the average bar of your team. You probe for optimal solutions, production-level thinking, and crisp reasoning under pressure. A brute-force answer must be challenged with "Can we do better?" Communication clarity matters as much as technical depth. One weak answer won't fail them — a pattern of shallow thinking will.`,
+  }[personality] || `You are a professional technical interviewer.`;
 
-Your role is to conduct a realistic mock interview for ${typeDesc}.
+  const domain = {
+    'DSA': `You are interviewing for a Software Engineer role focused on problem solving and algorithms.
 
-INTERVIEW OBJECTIVE
-Evaluate the candidate's knowledge, reasoning ability, communication clarity, and problem solving skills while simulating a real technical interview environment.
+The problem is displayed as a card on the candidate's screen — it already shows the test cases and constraints visually. Do NOT read out examples or constraints. When presenting the problem, say only the title and a one-sentence description, then say "the examples are on your screen" and ask "Any questions before you start?" Then wait.
 
-INTERVIEW RULES
-1. Ask ONLY one question at a time.
-2. Wait for the candidate's answer before continuing.
-3. Always ask follow-up questions to probe deeper understanding.
-4. If an answer is vague, incomplete, or incorrect, ask clarifying questions.
-5. Encourage structured thinking (approach → solution → complexity → edge cases).
-6. If the candidate talks too long or goes off-topic, politely redirect them to be concise.
-7. Gradually increase the difficulty level as the interview progresses.
-8. Never reveal evaluation scores or internal assessment during the interview.
+Enforce this candidate sequence: clarify before coding, explain the approach out loud, then implement, then state time and space complexity unprompted. If their solution is O(n²) and a better one exists, ask "Can we do better?" without revealing how. Progress from arrays and strings to trees and graphs to dynamic programming based on performance. Notice whether the candidate asks smart clarifying questions or just jumps straight in — that signal matters.`,
 
-RESPONSE STYLE
-- Keep responses natural and conversational.
-- Speak at a moderate, natural pace.
-- Keep responses short enough to be spoken in ~30 seconds.
-- Avoid long explanations unless the candidate explicitly asks for clarification.
+    'Android Developer': `You are interviewing for a Senior Android Engineer role.
 
-INTERVIEW FLOW
-Follow this structure:
-1. Briefly introduce yourself.
-2. Ask the first question.
-3. After each answer:
-   - ask follow-up questions
-   - probe reasoning
-   - test edge cases
-   - increase difficulty gradually
+Cover these areas in depth, not breadth: Kotlin idioms and coroutines, Jetpack Compose and the recomposition model, MVVM vs MVI and when each makes sense, ViewModel with StateFlow and lifecycle awareness, dependency injection with Hilt, Room and data persistence, and production performance debugging. Ask about real trade-offs, not textbook definitions. Strong questions to use: "Walk me through how recomposition works and how you'd debug excessive recompositions." "How does your architecture handle a process death mid-flow?" "When would you pick WorkManager over a foreground service, and why?" If they share their screen, read their code directly and ask about specific decisions you see.`,
 
-START THE INTERVIEW NOW.
-Begin with a short introduction and then ask the first question.`;
+    'HR Interview': `You are conducting a behavioral interview to assess cultural fit, leadership, and problem-solving under ambiguity.
+
+Use the STAR method as your internal evaluation lens but don't mention it. Cover: the project they're most proud of and their specific contribution to its success, a meaningful conflict with a teammate and exactly how they resolved it, a significant failure and what concretely changed in how they work, a time they influenced a decision without having direct authority, and a situation where they disagreed with a decision but had to execute it anyway. When answers sound collective ("we decided to..."), drill in: "What did you personally decide?" "What would have happened if you hadn't been there?" Push for specificity and ownership — vague answers are a signal.`,
+
+    'System Design': `You are interviewing for a Senior Engineer role on system design and architecture.
+
+Start by giving a clear, scoped problem. For example: "Design a URL shortening service like Bitly. Assume hundreds of millions of existing URLs, ten thousand writes per second, and a hundred thousand reads per second. Users should get redirects in under one hundred milliseconds globally." Then say: "Walk me through how you'd approach this. Start by asking me any clarifying questions you need." Then wait for them to lead.
+
+Do not let them skip steps — if they jump straight to architecture without clarifying requirements, stop them: "Let's slow down — what assumptions are you making about scale?" Drive through: requirements and scale estimation, high-level architecture, API design, database and storage decisions, caching strategy, then failure modes and observability. Push deeper after surface answers: "What breaks first at 10x load?" "How do you handle a regional outage?" "What pages you at 3am?" If they share their screen, reference their diagram directly.`,
+  }[type] || `Conduct a rigorous and professional technical interview.`;
+
+  return `${persona}
+
+${domain}
+
+VOICE AND CONDUCT
+You are speaking out loud in a real-time voice interview. This is audio only — never use backticks, asterisks, bullet points, numbered lists, code blocks, variable names, or any markdown formatting. No "nums equals", no "index zero", no backtick notation. Speak exactly as a human interviewer would speak face to face. Describe everything in plain conversational English. Keep every response under 25 seconds of speaking time. Be direct and purposeful — cut filler phrases.
+
+One question at a time, always. Wait for a complete answer before continuing. After each answer, ask exactly one targeted follow-up that either probes their reasoning or tests an edge case — never let a surface-level answer pass unchallenged.
+
+Listen to how they speak, not just what they say. Hesitation on a topic is signal. If they go quiet for a moment, give them space: "Take your time" or "Think out loud if it helps." If they ramble off-topic, redirect cleanly: "Let me steer us back to the core question." If they share their screen, reference what you see naturally in conversation — don't narrate it constantly.
+
+Never reveal scores or internal assessments during the interview. Never give away answers. Never ask more than one question at a time.
+
+BEGIN NOW. Introduce yourself by first name and role in one sentence. State what kind of interview this is. Then ask your opening question.`;
+}
+
+async function generateDSAProblem(ai) {
+  const prompt = `Generate a random DSA interview problem. Return ONLY valid JSON — no markdown, no code blocks, no extra text. Use exactly this schema:
+{
+  "title": "Problem Name",
+  "description": "Clear problem statement in 2-3 sentences.",
+  "testCases": [
+    {"input": "nums = [2,7,11,15], target = 9", "output": "0, 1"},
+    {"input": "nums = [3,2,4], target = 6", "output": "1, 2"},
+    {"input": "nums = [3,3], target = 6", "output": "0, 1"}
+  ],
+  "constraints": ["2 <= nums.length <= 10^4", "Each input has exactly one solution"],
+  "difficulty": "Medium"
+}
+Pick any classic problem from: arrays, hashmaps, two pointers, sliding window, binary search, linked lists, stacks, or trees. Prefer Medium difficulty. Use realistic, concrete test case values — never variable names or pseudocode.`;
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+  });
+  // Support both response.text (convenience) and the deep path
+  const raw = (typeof response.text === 'string' ? response.text : response?.candidates?.[0]?.content?.parts?.[0]?.text ?? '').trim();
+  if (!raw) throw new Error('Empty response from generateContent');
+  // Strip accidental markdown fences if model adds them despite instructions
+  const cleaned = raw.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/i, '').trim();
+  return JSON.parse(cleaned);
 }
 
 app.prepare().then(() => {
@@ -103,10 +126,16 @@ app.prepare().then(() => {
     const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
     let session = null;
     let sessionClosed = false;
+    let pendingProblem = null; // set after generation; sent on first AI transcript
+
+    // Kick off problem generation immediately — runs in parallel with session setup
+    const problemPromise = interviewType === 'DSA'
+      ? generateDSAProblem(ai).catch(e => { console.error('[Gemini] Problem pre-gen failed:', e.message); return null; })
+      : Promise.resolve(null);
 
     try {
       session = await ai.live.connect({
-        model: process.env.GEMINI_LIVE_MODEL || 'gemini-2.5-flash-native-audio-preview-09-2025',
+        model: process.env.GEMINI_LIVE_MODEL || 'gemini-2.5-flash-native-audio-preview-12-2025',
         callbacks: {
           onopen: () => {
             console.log('[Gemini] Session onopen callback called');
@@ -126,15 +155,15 @@ app.prepare().then(() => {
               for (const part of parts) {
                 if (part.inlineData) {
                   // Audio chunk from AI
+                  console.log(`[Gemini] Audio chunk: mimeType=${part.inlineData.mimeType}, bytes=${Math.round(part.inlineData.data.length * 0.75)}`);
                   ws.send(JSON.stringify({
                     type: 'audio',
                     data: part.inlineData.data,
                     mimeType: part.inlineData.mimeType,
                   }));
                 }
-                if (part.text) {
-                  ws.send(JSON.stringify({ type: 'ai_transcript', text: part.text }));
-                }
+                // part.text is skipped — thinking model leaks reasoning here.
+                // Clean speech text comes from outputTranscription below.
               }
 
               // Input transcription (user's speech)
@@ -151,6 +180,11 @@ app.prepare().then(() => {
                   type: 'ai_transcript',
                   text: serverContent.outputTranscription.text,
                 }));
+                // First AI transcript means Alex is speaking — now reveal the problem card
+                if (pendingProblem) {
+                  ws.send(JSON.stringify({ type: 'problem', problem: pendingProblem }));
+                  pendingProblem = null;
+                }
               }
 
               if (serverContent.turnComplete) {
@@ -158,9 +192,32 @@ app.prepare().then(() => {
               }
             }
 
-            // Setup complete
+            // Setup complete — optionally generate DSA problem, then kick off
             if (message.setupComplete) {
-              console.log('[Gemini] Setup complete:', message.setupComplete);
+              console.log('[Gemini] Setup complete — preparing kick-off');
+              (async () => {
+                try {
+                  let kickoffText = 'Begin.';
+
+                  if (interviewType === 'DSA') {
+                    // Await the pre-started promise (already running in parallel with session setup)
+                    const problem = await problemPromise;
+                    if (problem) {
+                      console.log('[Gemini] Problem ready:', problem.title);
+                      pendingProblem = problem; // will be sent on first ai_transcript
+                      kickoffText = `Begin. Introduce yourself by first name and role in one sentence. Then tell the candidate: "Today's problem is ${problem.title} — ${problem.description} The examples are on your screen. Any questions before you start?"`;
+                    }
+                  }
+
+                  await session.sendClientContent({
+                    turns: [{ role: 'user', parts: [{ text: kickoffText }] }],
+                    turnComplete: true,
+                  });
+                  console.log('[Gemini] Kick-off sent');
+                } catch (e) {
+                  console.error('[Gemini] Kick-off failed:', e.message);
+                }
+              })();
             }
           },
           onerror: (e) => {
@@ -180,17 +237,16 @@ app.prepare().then(() => {
         config: {
           responseModalities: [Modality.AUDIO],
           systemInstruction: { parts: [{ text: buildSystemPrompt(interviewType, personality) }] },
+          speechConfig: {
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } },
+          },
           inputAudioTranscription: {},
           outputAudioTranscription: {},
         },
       });
 
       console.log('[Gemini] ai.live.connect resolved successfully');
-      // Kick off the interview now that the session is assigned and connected
-      session.sendClientContent({
-        turns: [{ role: 'user', parts: [{ text: 'Begin the interview. Introduce yourself briefly and ask the first question.' }] }],
-        turnComplete: true,
-      });
+      // Native audio model auto-starts from system prompt — no sendClientContent needed.
 
     } catch (err) {
       console.error('[WS] Failed to connect to Gemini:', err);
@@ -209,6 +265,11 @@ app.prepare().then(() => {
           // PCM16 audio from browser microphone
           await session.sendRealtimeInput({
             audio: { data: msg.data, mimeType: 'audio/pcm;rate=16000' },
+          });
+        } else if (msg.type === 'image') {
+          // Vision frame — use `video` field per Google's Live API spec
+          await session.sendRealtimeInput({
+            video: { data: msg.data, mimeType: msg.mimeType || 'image/jpeg' },
           });
         } else if (msg.type === 'text') {
           await session.sendClientContent({

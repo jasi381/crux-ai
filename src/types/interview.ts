@@ -6,6 +6,19 @@ export interface InterviewConfig {
   personality: InterviewPersonality;
 }
 
+export interface DSATestCase {
+  input: string;
+  output: string;
+}
+
+export interface DSAProblem {
+  title: string;
+  description: string;
+  testCases: DSATestCase[];
+  constraints: string[];
+  difficulty: 'Easy' | 'Medium' | 'Hard';
+}
+
 export interface TranscriptMessage {
   text: string;
   isUser: boolean;
