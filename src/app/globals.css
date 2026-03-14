@@ -3,12 +3,53 @@
 @tailwind utilities;
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #0A0A0F; color: #fff; font-family: system-ui, -apple-system, sans-serif; }
+body { 
+  background: #07070B; 
+  color: #FFFFFF; 
+  font-family: 'Inter Tight', system-ui, -apple-system, sans-serif;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  .neural-glass {
+    @apply bg-white/[0.03] backdrop-blur-[32px] border border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.4)];
+  }
+  .neural-card {
+    @apply neural-glass rounded-[2rem] transition-all duration-500 hover:bg-white/[0.05] hover:border-white/[0.15] hover:shadow-[0_20px_50px_rgba(99,102,241,0.1)];
+  }
+  .tactile-button {
+    @apply active:scale-95 transition-all duration-200 cursor-pointer;
+  }
+  .bento-grid {
+    @apply grid gap-4 grid-cols-2 md:grid-cols-4 auto-rows-[120px];
+  }
+}
+
+@keyframes neural-float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-20px) scale(1.02); }
+}
+
+.animate-neural-float { animation: neural-float 10s ease-in-out infinite; }
+
+@keyframes scan-line {
+  0% { transform: translateY(-100%); opacity: 0; }
+  50% { opacity: 0.5; }
+  100% { transform: translateY(200%); opacity: 0; }
+}
+
+.after-scan::after {
+  content: '';
+  @apply absolute inset-0 bg-gradient-to-b from-transparent via-primary/20 to-transparent pointer-events-none;
+  animation: scan-line 4s linear infinite;
+}
 
 @keyframes breathe {
   0%, 100% { transform: scale(0.95); opacity: 0.8; }
   50% { transform: scale(1.05); opacity: 1; }
 }
+
 @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @keyframes spin-reverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
 @keyframes pulse-ring {
