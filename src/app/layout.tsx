@@ -4,6 +4,11 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Crux.ai',
   description: 'Real-time AI voice mock interview coach powered by Gemini',
+  icons: {
+    icon: '/crux-icon.svg',
+    apple: '/crux-icon.svg',
+    shortcut: '/crux-icon.svg',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

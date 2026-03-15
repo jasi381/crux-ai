@@ -320,6 +320,12 @@ export default function ScorecardPage() {
       </div>
       <div className="fixed inset-0 pointer-events-none after-scan" aria-hidden />
 
+      {/* ── TOP NAV ─────────────────────────────────────────────────────────── */}
+      <nav className="relative z-10 flex items-center px-6 py-4 border-b border-white/[0.04]">
+        <img src="/crux-icon.svg" alt="Crux.ai" className="w-8 h-8 rounded-lg" />
+        <span className="ml-2.5 text-sm font-black tracking-tight text-white">Crux<span className="text-primary">.ai</span></span>
+      </nav>
+
       {/* ── HERO SECTION ──────────────────────────────────────────────────────── */}
       <section className="relative border-b border-white/[0.04] py-14 px-6 flex flex-col items-center">
         {/* Analysis badge */}

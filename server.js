@@ -64,20 +64,31 @@ Never reveal scores or internal assessments during the interview. Never give awa
 BEGIN NOW. Introduce yourself by first name and role in one sentence. State what kind of interview this is. Then ask your opening question.`;
 }
 
-async function generateDSAProblem(ai) {
-  const prompt = `Generate a random DSA interview problem. Return ONLY valid JSON — no markdown, no code blocks, no extra text. Use exactly this schema:
+async function generateDSAProblem(ai, specificTitle = null, contextHint = null) {
+  let problemSpec;
+  if (contextHint) {
+    problemSpec = `An interviewer just said the following when transitioning to a new problem: "${contextHint.slice(0, 400)}". Identify the DSA problem being referred to and generate its full canonical details.`;
+  } else if (specificTitle) {
+    problemSpec = `Generate the DSA problem titled "${specificTitle}". Use its canonical problem statement and examples.`;
+  } else {
+    problemSpec = `Generate a random DSA interview problem. Pick any classic problem from: arrays, hashmaps, two pointers, sliding window, binary search, linked lists, stacks, or trees. Prefer Medium difficulty.`;
+  }
+
+  const prompt = `${problemSpec} Return ONLY valid JSON — no markdown, no code blocks, no extra text. Use exactly this schema:
 {
   "title": "Problem Name",
   "description": "Clear problem statement in 2-3 sentences.",
   "testCases": [
-    {"input": "nums = [2,7,11,15], target = 9", "output": "0, 1"},
-    {"input": "nums = [3,2,4], target = 6", "output": "1, 2"},
-    {"input": "nums = [3,3], target = 6", "output": "0, 1"}
+    {"input": "nums = [2,7,11,15], target = 9", "output": "[0, 1]", "explanation": "Because nums[0] + nums[1] == 9, we return [0, 1]."},
+    {"input": "nums = [3,2,4], target = 6", "output": "[1, 2]", "explanation": "nums[1] + nums[2] == 6, so we return [1, 2]."},
+    {"input": "nums = [3,3], target = 6", "output": "[0, 1]", "explanation": "nums[0] + nums[1] == 6, so we return [0, 1]."}
   ],
   "constraints": ["2 <= nums.length <= 10^4", "Each input has exactly one solution"],
   "difficulty": "Medium"
 }
-Pick any classic problem from: arrays, hashmaps, two pointers, sliding window, binary search, linked lists, stacks, or trees. Prefer Medium difficulty. Use realistic, concrete test case values — never variable names or pseudocode.`;
+Rules:
+- Use realistic, concrete test case values — never variable names or pseudocode.
+- The "explanation" field must be a concise 1-2 sentence walkthrough of WHY the output is correct for that specific input, like LeetCode's explanation style.`;
 
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
@@ -127,6 +138,8 @@ app.prepare().then(() => {
     let session = null;
     let sessionClosed = false;
     let pendingProblem = null; // set after generation; sent on first AI transcript
+    let aiTurnText = '';       // accumulates AI text per turn for problem detection
+    let firstTurnDone = false; // skip detection on the very first turn (initial greeting)
 
     // Kick off problem generation immediately — runs in parallel with session setup
     const problemPromise = interviewType === 'DSA'
@@ -176,10 +189,9 @@ app.prepare().then(() => {
 
               // Output transcription (AI's speech text)
               if (serverContent.outputTranscription?.text) {
-                ws.send(JSON.stringify({
-                  type: 'ai_transcript',
-                  text: serverContent.outputTranscription.text,
-                }));
+                const chunk = serverContent.outputTranscription.text;
+                ws.send(JSON.stringify({ type: 'ai_transcript', text: chunk }));
+                aiTurnText += chunk;
                 // First AI transcript means Alex is speaking — now reveal the problem card
                 if (pendingProblem) {
                   ws.send(JSON.stringify({ type: 'problem', problem: pendingProblem }));
@@ -189,6 +201,38 @@ app.prepare().then(() => {
 
               if (serverContent.turnComplete) {
                 ws.send(JSON.stringify({ type: 'turn_complete' }));
+
+                // Detect when the AI introduces a NEW problem mid-session
+                if (!firstTurnDone) {
+                  firstTurnDone = true;
+                } else if (interviewType === 'DSA') {
+                  const lower = aiTurnText.toLowerCase();
+                  const isNewProblem = [
+                    'examples are on your screen',
+                    'transition to a different problem',
+                    'different problem',
+                    "let's move on to",
+                    'move on to',
+                    'next problem',
+                    'new problem',
+                    'another problem',
+                    "let's try",
+                    'next one is',
+                  ].some(phrase => lower.includes(phrase));
+
+                  if (isNewProblem) {
+                    console.log('[Gemini] Problem transition detected — generating next problem from context');
+                    generateDSAProblem(ai, null, aiTurnText)
+                      .then(problem => {
+                        if (problem && ws.readyState === WebSocket.OPEN) {
+                          ws.send(JSON.stringify({ type: 'problem', problem }));
+                        }
+                      })
+                      .catch(e => console.error('[Gemini] Next problem gen failed:', e.message));
+                  }
+                }
+
+                aiTurnText = ''; // reset for next turn
               }
             }
 

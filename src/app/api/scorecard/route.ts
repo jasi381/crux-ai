@@ -3,59 +3,76 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
+const FALLBACK = {
+  clarity: 5,
+  confidence: 5,
+  technicalDepth: 5,
+  conciseness: 5,
+  suggestions: [
+    'Practice structured answers using the STAR method',
+    'Be more specific with technical details and examples',
+    'Keep answers concise — aim for 1-2 minutes per response',
+    'Prepare questions to ask the interviewer at the end',
+  ],
+};
+
 export async function POST(req: NextRequest) {
   try {
     const { type, personality, durationSeconds, transcript } = await req.json();
 
-    const transcriptText = transcript
-      .map((m: { text: string; isUser: boolean }) => `${m.isUser ? 'Candidate' : 'Interviewer'}: ${m.text}`)
+    const transcriptText = (transcript as { text: string; isUser: boolean }[])
+      .map((m) => `${m.isUser ? 'Candidate' : 'Interviewer'}: ${m.text}`)
       .join('\n');
 
-    const prompt = `Evaluate this mock interview for a ${type} position with a ${personality} interviewer style.
+    const prompt = `You are an expert technical interview coach. Evaluate the candidate's performance in this mock interview.
 
-Interview duration: ${Math.floor(durationSeconds / 60)} minutes ${durationSeconds % 60} seconds.
+Interview type: ${type}
+Interviewer style: ${personality}
+Duration: ${Math.floor(durationSeconds / 60)}m ${durationSeconds % 60}s
 
-${transcriptText ? `Transcript:\n${transcriptText}\n` : 'Note: This was a live audio interview. Evaluate based on interview parameters and duration.'}
+${transcriptText ? `TRANSCRIPT:\n${transcriptText}` : 'No transcript captured. Score conservatively based on the interview type and duration alone.'}
 
-Give scores out of 10 for each category:
-- clarity: How clear and well-structured were the responses
-- confidence: How confident did the candidate sound
-- technical_depth: How deep was the technical knowledge demonstrated
-- conciseness: How concise and to-the-point were the answers
+Score the CANDIDATE only (not the interviewer) on each dimension from 1-10. Be honest and precise — vary scores meaningfully based on actual performance. Do not default to average scores:
+- clarity: Were answers clear, structured, and easy to follow?
+- confidence: Did the candidate sound confident and assertive, without excessive hesitation?
+- technical_depth: How technically accurate and deep were the answers? Did they explain trade-offs?
+- conciseness: Were answers focused and concise, or did the candidate ramble?
 
-Also provide 3-4 specific improvement suggestions.
+Also write 3-4 specific, actionable coaching tips based on THIS interview — reference what was actually said.
 
-Respond ONLY with valid JSON in this exact format:
-{"clarity": 7, "confidence": 6, "technical_depth": 5, "conciseness": 8, "suggestions": ["suggestion1", "suggestion2", "suggestion3"]}`;
+Output ONLY a raw JSON object (no markdown, no explanation, no code fences):
+{"clarity": <1-10>, "confidence": <1-10>, "technical_depth": <1-10>, "conciseness": <1-10>, "suggestions": ["tip1", "tip2", "tip3"]}`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
     });
 
-    const text = response.text ?? '';
-    const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    const raw = JSON.parse(jsonStr);
-    // Normalize snake_case field from Gemini → camelCase used by the app
-    const scorecard = { ...raw, technicalDepth: raw.technicalDepth ?? raw.technical_depth ?? 5 };
+    // Robustly extract text — handles both string getter and deep path (SDK version differences)
+    const rawText: string =
+      typeof response.text === 'string'
+        ? response.text
+        : (response as any)?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+
+    console.log('[Scorecard] Raw Gemini response:', rawText.slice(0, 300));
+
+    // Extract the JSON object even if Gemini wraps it in text or code fences
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error('[Scorecard] No JSON found in response:', rawText);
+      return NextResponse.json(FALLBACK);
+    }
+
+    const raw = JSON.parse(jsonMatch[0]);
+    // Normalize snake_case → camelCase
+    const scorecard = {
+      ...raw,
+      technicalDepth: raw.technicalDepth ?? raw.technical_depth ?? FALLBACK.technicalDepth,
+    };
 
     return NextResponse.json(scorecard);
   } catch (err: unknown) {
-    console.error('[Scorecard API] Error:', err);
-    return NextResponse.json(
-      {
-        clarity: 6,
-        confidence: 6,
-        technicalDepth: 6,
-        conciseness: 6,
-        suggestions: [
-          'Practice structured answers using STAR method',
-          'Be more specific with technical details',
-          'Keep answers concise (1-2 minutes)',
-          'Prepare common questions for your target role',
-        ],
-      },
-      { status: 200 }
-    );
+    console.error('[Scorecard] Error:', err);
+    return NextResponse.json(FALLBACK);
   }
 }

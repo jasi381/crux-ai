@@ -9,6 +9,7 @@ export interface InterviewConfig {
 export interface DSATestCase {
   input: string;
   output: string;
+  explanation?: string;
 }
 
 export interface DSAProblem {

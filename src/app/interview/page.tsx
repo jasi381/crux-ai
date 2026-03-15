@@ -195,65 +195,101 @@ const TranscriptBubble = memo(function TranscriptBubble({ msg, isLatest }: { msg
 
 // ─── DSA Problem Card ─────────────────────────────────────────────────────────
 function ProblemCard({ problem }: { problem: DSAProblem }) {
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(0);
+
   const diffColor =
-    problem.difficulty === 'Easy'   ? 'bg-emerald-400/15 text-emerald-400' :
-    problem.difficulty === 'Hard'   ? 'bg-accent/15 text-accent' :
-                                      'bg-yellow-400/15 text-yellow-400';
+    problem.difficulty === 'Easy' ? { bg: 'rgba(52,211,153,0.12)', text: '#34D399', border: 'rgba(52,211,153,0.25)' } :
+    problem.difficulty === 'Hard' ? { bg: 'rgba(244,63,94,0.12)',  text: '#F43F5E', border: 'rgba(244,63,94,0.25)' } :
+                                    { bg: 'rgba(251,191,36,0.12)', text: '#FBBF24', border: 'rgba(251,191,36,0.25)' };
+
   return (
-    <div className="neural-glass rounded-2xl border border-primary/20 p-4 flex flex-col gap-3">
-      {/* Header */}
-      <div className="flex items-center gap-2 flex-wrap">
+    <div className="rounded-2xl border border-primary/20 overflow-hidden" style={{ background: 'rgba(99,102,241,0.04)' }}>
+      {/* Header bar */}
+      <div className="flex items-center gap-2.5 px-4 py-3 border-b border-white/[0.06]">
         <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(99,102,241,1)]" />
-        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-primary">DSA Problem</span>
+        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-primary flex-1">DSA Problem</span>
         {problem.difficulty && (
-          <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${diffColor}`}>
+          <span className="text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full"
+            style={{ background: diffColor.bg, color: diffColor.text, border: `1px solid ${diffColor.border}` }}>
             {problem.difficulty}
           </span>
         )}
-        <span className="ml-auto font-bold text-white text-sm">{problem.title}</span>
       </div>
 
-      {/* Description */}
-      <p className="text-xs text-white/70 leading-relaxed">{problem.description}</p>
+      <div className="p-4 flex flex-col gap-4">
+        {/* Title + Description */}
+        <div>
+          <h3 className="font-bold text-white text-sm mb-1.5">{problem.title}</h3>
+          <p className="text-xs text-white/65 leading-relaxed">{problem.description}</p>
+        </div>
 
-      {/* Test Cases */}
-      {problem.testCases?.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <div className="text-[9px] font-black uppercase tracking-[0.25em] text-text-dim">Examples</div>
-          <div className="grid gap-1.5">
-            {problem.testCases.map((tc, i) => (
-              <div
-                key={i}
-                className="bg-white/[0.03] border border-white/[0.06] rounded-xl px-3 py-2 flex items-center gap-3 text-xs font-mono"
-              >
-                <div className="flex-1 min-w-0">
-                  <span className="text-[8px] font-black uppercase tracking-widest text-text-dim block mb-0.5">Input</span>
-                  <span className="text-secondary truncate block">{tc.input}</span>
+        {/* Examples — numbered, collapsible, LeetCode-style */}
+        {problem.testCases?.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {problem.testCases.map((tc, i) => {
+              const isOpen = expandedIdx === i;
+              return (
+                <div key={i} className="rounded-xl overflow-hidden border border-white/[0.06]">
+                  {/* Example header — click to toggle */}
+                  <button
+                    onClick={() => setExpandedIdx(isOpen ? null : i)}
+                    className="w-full flex items-center justify-between px-3 py-2 bg-white/[0.03] hover:bg-white/[0.05] transition-colors"
+                  >
+                    <span className="text-[9px] font-black uppercase tracking-[0.25em] text-text-dim">
+                      Example {i + 1}
+                    </span>
+                    <svg
+                      width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor"
+                      strokeWidth="2" strokeLinecap="round"
+                      className="text-text-dim transition-transform duration-200"
+                      style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                    >
+                      <path d="M2 4l4 4 4-4" />
+                    </svg>
+                  </button>
+
+                  {/* Expandable body */}
+                  {isOpen && (
+                    <div className="px-3 py-3 bg-black/20 flex flex-col gap-2 border-t border-white/[0.04]">
+                      {/* Input */}
+                      <div className="flex items-baseline gap-2 font-mono text-xs">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-text-dim w-12 shrink-0">Input</span>
+                        <span className="text-secondary">{tc.input}</span>
+                      </div>
+                      {/* Output */}
+                      <div className="flex items-baseline gap-2 font-mono text-xs">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-text-dim w-12 shrink-0">Output</span>
+                        <span className="text-primary">{tc.output}</span>
+                      </div>
+                      {/* Explanation */}
+                      {tc.explanation && (
+                        <div className="flex items-start gap-2 mt-0.5 pt-2 border-t border-white/[0.04]">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-text-dim w-12 shrink-0 pt-px">Explain</span>
+                          <p className="text-xs text-white/55 leading-relaxed">{tc.explanation}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div className="w-px self-stretch bg-white/10 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <span className="text-[8px] font-black uppercase tracking-widest text-text-dim block mb-0.5">Output</span>
-                  <span className="text-primary truncate block">{tc.output}</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Constraints */}
-      {problem.constraints?.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {problem.constraints.map((c, i) => (
-            <span
-              key={i}
-              className="text-[9px] font-mono bg-white/[0.04] border border-white/[0.06] rounded-lg px-2 py-0.5 text-white/50"
-            >
-              {c}
-            </span>
-          ))}
-        </div>
-      )}
+        {/* Constraints */}
+        {problem.constraints?.length > 0 && (
+          <div>
+            <div className="text-[9px] font-black uppercase tracking-[0.25em] text-text-dim mb-1.5">Constraints</div>
+            <div className="flex flex-wrap gap-1">
+              {problem.constraints.map((c, i) => (
+                <span key={i} className="text-[9px] font-mono bg-white/[0.04] border border-white/[0.06] rounded-lg px-2 py-0.5 text-white/50">
+                  {c}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -681,8 +717,11 @@ function InterviewContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const TopBar = useMemo(() => (
     <header className="w-full flex items-center justify-between z-30 relative flex-shrink-0">
-      {/* Left: session info + vision controls */}
+      {/* Left: logo + session info + vision controls */}
       <div className="flex items-center gap-2">
+        {/* Crux logo mark */}
+        <img src="/crux-icon.svg" alt="Crux.ai" className="w-8 h-8 rounded-lg shrink-0" />
+
         {/* Session pill */}
         <div className="neural-glass h-10 px-4 rounded-2xl flex items-center gap-3">
           <div
@@ -786,8 +825,18 @@ function InterviewContent() {
         <div className="hidden md:block mt-auto">{EndButton}</div>
       </aside>
 
-      {/* Right column: transcript feed */}
+      {/* Right column: problem panel (pinned) + transcript feed */}
       <div className="flex-1 flex flex-col min-h-0 neural-glass rounded-3xl overflow-hidden border border-white/[0.06]">
+
+        {/* DSA Problem panel — pinned at top, own scroll, never buried in transcript */}
+        {interviewType === 'DSA' && dsaProblem && (
+          <div
+            className="overflow-y-auto flex-shrink-0 border-b border-primary/[0.15] animate-in fade-in slide-in-from-top-2 duration-500"
+            style={{ maxHeight: '46%', background: 'rgba(99,102,241,0.025)' }}
+          >
+            <ProblemCard key={dsaProblem.title} problem={dsaProblem} />
+          </div>
+        )}
 
         {/* Transcript header strip */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.05] flex-shrink-0">
@@ -815,12 +864,6 @@ function InterviewContent() {
           {transcript.map((msg, i) => (
             <TranscriptBubble key={msg.timestamp} msg={msg} isLatest={i === transcript.length - 1} />
           ))}
-          {/* DSA Problem Card — appears below transcript after Alex speaks */}
-          {interviewType === 'DSA' && dsaProblem && (
-            <div className="animate-in fade-in slide-in-from-bottom-3 duration-500">
-              <ProblemCard problem={dsaProblem} />
-            </div>
-          )}
           <div ref={transcriptEndRef} />
         </div>
 
