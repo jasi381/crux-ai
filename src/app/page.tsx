@@ -43,7 +43,7 @@ export default function Home() {
              <div className="w-8 h-8 bg-gradient-to-tr from-primary to-secondary rounded-lg animate-pulse" />
           </div>
           <h1 className="text-5xl md:text-7xl font-black tracking-tightest mb-4 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/40">
-            InterviewCoach<span className="text-primary font-serif">.ai</span>
+            Crux<span className="text-primary font-serif">.ai</span>
           </h1>
           <p className="text-text-secondary text-lg max-w-xl leading-relaxed">
             Neural-agent driven mock interviews. Designed for the 2026 talent landscape.
@@ -166,7 +166,7 @@ export default function Home() {
               <span className="hover:text-primary transition-colors cursor-pointer">Security Protocol 2.6</span>
               <span className="hover:text-secondary transition-colors cursor-pointer">Neural Engine V9</span>
            </div>
-           <div>© 2026 InterviewCoach Meta-Systems</div>
+           <div>© 2026 Crux Meta-Systems</div>
         </footer>
       </div>
     </div>

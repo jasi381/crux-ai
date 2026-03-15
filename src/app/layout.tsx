@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'InterviewCoach AI',
+  title: 'Crux.ai',
   description: 'Real-time AI voice mock interview coach powered by Gemini',
 };
 
