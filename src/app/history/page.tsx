@@ -8,6 +8,7 @@ export default function HistoryPage() {
   const router = useRouter();
   const [history, setHistory] = useState<InterviewHistory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showClearDialog, setShowClearDialog] = useState(false);
 
   useEffect(() => {
     try {
@@ -40,9 +41,9 @@ export default function HistoryPage() {
   };
 
   const handleClear = () => {
-    if (!confirm('Clear all history?')) return;
     localStorage.removeItem('interview_history');
     setHistory([]);
+    setShowClearDialog(false);
   };
 
   return (
@@ -72,7 +73,7 @@ export default function HistoryPage() {
 
           {history.length > 0 && (
             <button
-              onClick={handleClear}
+              onClick={() => setShowClearDialog(true)}
               className="tactile-button px-4 py-2 rounded-xl neural-glass text-[10px] font-black uppercase tracking-widest text-text-dim hover:text-accent hover:border-accent/30 transition-all border border-transparent"
             >
               Clear All
@@ -171,6 +172,52 @@ export default function HistoryPage() {
           </div>
         )}
       </div>
+
+      {/* ── Clear All confirmation dialog ── */}
+      {showClearDialog && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(7,7,11,0.8)', backdropFilter: 'blur(12px)' }}
+          onClick={() => setShowClearDialog(false)}
+        >
+          <div
+            className="relative w-full max-w-sm rounded-3xl border border-white/[0.08] p-8 flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-200"
+            style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(244,63,94,0.06) 100%)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Icon */}
+            <div className="w-14 h-14 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center mb-5">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F43F5E" strokeWidth="2" strokeLinecap="round">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+                <path d="M10 11v6M14 11v6" />
+                <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
+              </svg>
+            </div>
+
+            <h2 className="text-lg font-black tracking-tight text-white mb-2">Clear all history?</h2>
+            <p className="text-xs text-text-dim leading-relaxed mb-8">
+              This will permanently delete all {history.length} session{history.length !== 1 ? 's' : ''} from your vault. This action cannot be undone.
+            </p>
+
+            <div className="flex gap-3 w-full">
+              <button
+                onClick={() => setShowClearDialog(false)}
+                className="tactile-button flex-1 h-11 rounded-2xl neural-glass border border-white/[0.08] text-[11px] font-black uppercase tracking-widest text-text-dim hover:text-white transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleClear}
+                className="tactile-button flex-1 h-11 rounded-2xl text-[11px] font-black uppercase tracking-widest text-white transition-all"
+                style={{ background: 'rgba(244,63,94,0.15)', border: '1px solid rgba(244,63,94,0.35)' }}
+              >
+                Delete All
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
