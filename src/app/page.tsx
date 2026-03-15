@@ -160,14 +160,6 @@ export default function Home() {
           </section>
         </div>
 
-        {/* Footer Meta */}
-        <footer className="flex flex-col md:flex-row items-center justify-between px-8 text-text-dim text-[10px] font-black uppercase tracking-[0.4em]">
-           <div className="flex items-center gap-6 mb-4 md:mb-0">
-              <span className="hover:text-primary transition-colors cursor-pointer">Security Protocol 2.6</span>
-              <span className="hover:text-secondary transition-colors cursor-pointer">Neural Engine V9</span>
-           </div>
-           <div>© 2026 Crux Meta-Systems</div>
-        </footer>
       </div>
     </div>
   );
