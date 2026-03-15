@@ -3,9 +3,6 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect, useRef, useCallback, useMemo, memo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { TranscriptMessage, DSAProblem } from '@/types/interview';
-import { db, auth } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
 
 // ─── Neural Orb (Canvas) ──────────────────────────────────────────────────────
 function NeuralOrb({
@@ -270,16 +267,15 @@ function ModeToggle({
   onChange: (m: 'chat' | 'immersive') => void;
 }) {
   return (
-    <div className="neural-glass rounded-xl p-1 flex items-center gap-1">
+    <div className="neural-glass h-10 rounded-xl px-1 flex items-center gap-1">
       <button
         onClick={() => onChange('chat')}
-        className={`tactile-button flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${
+        className={`tactile-button h-8 flex items-center gap-1.5 px-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${
           mode === 'chat'
             ? 'bg-primary/20 text-primary border border-primary/30 shadow-[0_0_12px_rgba(99,102,241,0.2)]'
             : 'text-text-dim hover:text-white'
         }`}
       >
-        {/* Minimal chat icon */}
         <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
           <path d="M2 2h12v9H9l-3 3v-3H2V2z" opacity="0.9" />
         </svg>
@@ -287,13 +283,12 @@ function ModeToggle({
       </button>
       <button
         onClick={() => onChange('immersive')}
-        className={`tactile-button flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${
+        className={`tactile-button h-8 flex items-center gap-1.5 px-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${
           mode === 'immersive'
             ? 'bg-secondary/15 text-secondary border border-secondary/30 shadow-[0_0_12px_rgba(45,212,191,0.15)]'
             : 'text-text-dim hover:text-white'
         }`}
       >
-        {/* Minimal orb icon */}
         <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" aria-hidden>
           <circle cx="8" cy="8" r="4.5" />
           <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.5" />
@@ -335,7 +330,6 @@ function InterviewContent() {
   const transcriptRef     = useRef<TranscriptMessage[]>([]);
   const durationRef       = useRef(0);
   const transcriptEndRef  = useRef<HTMLDivElement>(null);
-  const userIdRef         = useRef<string | null>(null);
   const statusRef         = useRef<string>('connecting');
   const nextStartTimeRef  = useRef(0);
 
@@ -417,12 +411,10 @@ function InterviewContent() {
     }
   }, [transcript, viewMode]);
 
-  useEffect(() => {
-    return onAuthStateChanged(auth, (u) => { userIdRef.current = u?.uid ?? null; });
-  }, []);
 
   // ── Timer ──────────────────────────────────────────────────────────────────
   const startTimer = useCallback(() => {
+    if (timerRef.current) return; // guard: only start once
     timerRef.current = setInterval(() => {
       durationRef.current += 1;
       setDuration((d) => d + 1);
@@ -636,6 +628,12 @@ function InterviewContent() {
       const scorecard = await res.json();
       sessionStorage.setItem('scorecard', JSON.stringify(scorecard));
       sessionStorage.setItem('interviewMeta', JSON.stringify({ type: interviewType, personality, duration: durationRef.current }));
+      // Persist to localStorage history
+      try {
+        const entry = { id: `${Date.now()}`, timestamp: Date.now(), type: interviewType, personality, durationSeconds: durationRef.current, scorecard, transcript: transcriptRef.current };
+        const prev = JSON.parse(localStorage.getItem('interview_history') || '[]');
+        localStorage.setItem('interview_history', JSON.stringify([entry, ...prev].slice(0, 50)));
+      } catch {}
       router.push('/scorecard');
     } catch (err) { setIsGenerating(false); }
   };
@@ -686,23 +684,22 @@ function InterviewContent() {
       {/* Left: session info + vision controls */}
       <div className="flex items-center gap-2">
         {/* Session pill */}
-        <div className="neural-glass px-4 py-2.5 rounded-2xl flex items-center gap-3">
+        <div className="neural-glass h-10 px-4 rounded-2xl flex items-center gap-3">
           <div
-            className={`w-1.5 h-1.5 rounded-full animate-pulse ${
+            className={`w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0 ${
               status === 'connected' ? 'bg-primary shadow-[0_0_7px_#6366F1]' :
               status === 'error'     ? 'bg-accent' : 'bg-text-dim'
             }`}
           />
-          <div>
-            <div className="text-[9px] font-black uppercase tracking-[0.22em] text-text-dim leading-none mb-0.5">
-              Live Session
-            </div>
-            <div className="text-xs font-bold text-white leading-none">{interviewType}</div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[9px] font-black uppercase tracking-[0.22em] text-text-dim leading-none">Live</span>
+            <span className="text-[9px] font-black text-text-dim leading-none opacity-40">/</span>
+            <span className="text-xs font-bold text-white leading-none">{interviewType}</span>
           </div>
         </div>
 
         {/* Personality chip */}
-        <div className="neural-glass px-3 py-2 rounded-xl hidden sm:block">
+        <div className="neural-glass h-10 px-3 rounded-xl items-center hidden sm:flex">
           <span className="text-[9px] font-black uppercase tracking-widest text-secondary">
             {personality}
           </span>
@@ -711,7 +708,7 @@ function InterviewContent() {
         {/* Screen share control */}
         <button
           onClick={visionMode === 'screen' ? stopVision : startScreenShare}
-          className={`tactile-button px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
+          className={`tactile-button h-10 px-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center ${
             visionMode === 'screen'
               ? 'bg-secondary/15 text-secondary border border-secondary/30'
               : 'neural-glass text-text-dim hover:text-white'
@@ -730,7 +727,7 @@ function InterviewContent() {
       <div className="flex items-center gap-2">
         <ModeToggle mode={viewMode} onChange={setViewMode} />
 
-        <div className="neural-glass px-5 py-2.5 rounded-2xl font-mono text-lg font-black tracking-tight text-primary tabular-nums">
+        <div className="neural-glass h-10 px-5 rounded-2xl flex items-center font-mono text-lg font-black tracking-tight text-primary tabular-nums">
           {formatDuration(duration)}
         </div>
 
@@ -858,71 +855,158 @@ function InterviewContent() {
   // ─────────────────────────────────────────────────────────────────────────────
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const ImmersiveMode = useMemo(() => (
-    <div className="flex flex-col flex-1 items-center justify-center gap-6 min-h-0 relative mt-4">
+    <div className="flex flex-col flex-1 items-center justify-center min-h-0 relative overflow-hidden">
 
-      {/* Ambient radial glow — reacts to speaker */}
+      {/* ── Deep space atmosphere — reacts to speaker ── */}
       <div
-        className="absolute inset-0 pointer-events-none transition-all duration-1000"
+        className="absolute inset-0 pointer-events-none transition-all duration-[1800ms]"
         style={{
           background: lastSpeaker === 'user'
-            ? 'radial-gradient(ellipse 65% 55% at 50% 48%, rgba(45,212,191,0.08) 0%, transparent 70%)'
-            : 'radial-gradient(ellipse 65% 55% at 50% 48%, rgba(99,102,241,0.10) 0%, transparent 70%)',
+            ? 'radial-gradient(ellipse 75% 65% at 50% 32%, rgba(45,212,191,0.11) 0%, rgba(45,212,191,0.03) 55%, transparent 80%)'
+            : 'radial-gradient(ellipse 75% 65% at 50% 32%, rgba(99,102,241,0.13) 0%, rgba(99,102,241,0.04) 55%, transparent 80%)',
         }}
       />
+      {/* Floor fade */}
+      <div
+        className="absolute bottom-0 left-0 right-0 h-2/5 pointer-events-none"
+        style={{ background: 'linear-gradient(to top, rgba(7,7,11,0.85) 0%, transparent 100%)' }}
+      />
+      {/* Scanline texture */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-[0.02]"
+        style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.5) 2px, rgba(255,255,255,0.5) 3px)', backgroundSize: '100% 3px' }}
+      />
 
-      {/* Large orb + pulse rings */}
-      <div className="relative flex items-center justify-center">
-        {/* Outer glow layers */}
+      {/* ── ORB STAGE ── */}
+      <div className="relative flex items-center justify-center mb-6 z-10">
+        {/* Outermost haze */}
         <div
-          className={`absolute rounded-full blur-3xl opacity-20 transition-colors duration-1000 pointer-events-none
-            ${lastSpeaker === 'user' ? 'bg-secondary' : 'bg-primary'}`}
-          style={{ inset: '-30%' }}
+          className="absolute rounded-full pointer-events-none transition-colors duration-[2000ms]"
+          style={{
+            inset: '-85%',
+            background: lastSpeaker === 'user'
+              ? 'radial-gradient(circle, rgba(45,212,191,0.05) 0%, transparent 62%)'
+              : 'radial-gradient(circle, rgba(99,102,241,0.07) 0%, transparent 62%)',
+            filter: 'blur(36px)',
+          }}
         />
+        {/* Mid bloom */}
         <div
-          className={`absolute rounded-full blur-2xl opacity-12 transition-colors duration-1000 pointer-events-none
-            ${lastSpeaker === 'user' ? 'bg-secondary' : 'bg-primary'}`}
-          style={{ inset: '-50%' }}
+          className="absolute rounded-full pointer-events-none transition-colors duration-[1500ms]"
+          style={{
+            inset: '-45%',
+            background: lastSpeaker === 'user'
+              ? 'radial-gradient(circle, rgba(45,212,191,0.13) 0%, transparent 58%)'
+              : 'radial-gradient(circle, rgba(99,102,241,0.16) 0%, transparent 58%)',
+            filter: 'blur(18px)',
+          }}
         />
-
-        {/* Orb */}
+        {/* Concentric pulse rings */}
+        {([0, 0.75, 1.5] as number[]).map((delay, i) => (
+          <div
+            key={i}
+            className="absolute inset-0 rounded-full pointer-events-none animate-pulse-ring"
+            style={{
+              animationDelay: `${delay}s`,
+              border: `1px solid ${lastSpeaker === 'user' ? `rgba(45,212,191,${0.18 - i * 0.04})` : `rgba(99,102,241,${0.20 - i * 0.04})`}`,
+              transition: 'border-color 900ms ease',
+            }}
+          />
+        ))}
+        {/* Orbital rim ring */}
+        <div
+          className="absolute rounded-full pointer-events-none transition-all duration-700"
+          style={{
+            inset: '-3px',
+            border: `1px solid ${lastSpeaker === 'user' ? 'rgba(45,212,191,0.28)' : 'rgba(99,102,241,0.28)'}`,
+            boxShadow: lastSpeaker === 'user'
+              ? '0 0 28px rgba(45,212,191,0.10), inset 0 0 28px rgba(45,212,191,0.05)'
+              : '0 0 28px rgba(99,102,241,0.12), inset 0 0 28px rgba(99,102,241,0.06)',
+          }}
+        />
         <NeuralOrb lastSpeaker={lastSpeaker} size="large" className="relative z-10 animate-breathe" />
-
-        {/* Pulse rings — AI speaking only */}
-        {lastSpeaker === 'ai' && (
-          <>
-            <div className="absolute inset-0 rounded-full border border-primary/20 animate-pulse-ring pointer-events-none" />
-            <div
-              className="absolute inset-0 rounded-full border border-primary/12 animate-pulse-ring pointer-events-none"
-              style={{ animationDelay: '0.9s' }}
-            />
-            <div
-              className="absolute inset-0 rounded-full border border-primary/06 animate-pulse-ring pointer-events-none"
-              style={{ animationDelay: '1.8s' }}
-            />
-          </>
-        )}
       </div>
 
-      {/* Speaker pill */}
-      <SpeakerPill lastSpeaker={lastSpeaker} personality={personality} />
+      {/* ── SPEAKER INDICATOR — minimal with waveform ── */}
+      <div className="flex flex-col items-center gap-2 mb-7 z-10">
+        <div className="flex items-center gap-3">
+          <div className="h-px transition-all duration-700"
+            style={{ width: '40px', background: lastSpeaker === 'user' ? 'linear-gradient(to right, transparent, rgba(45,212,191,0.5))' : 'linear-gradient(to right, transparent, rgba(99,102,241,0.5))' }}
+          />
+          <div className="w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0 transition-all duration-500"
+            style={{
+              background: lastSpeaker === 'user' ? '#2DD4BF' : '#6366F1',
+              boxShadow: lastSpeaker === 'user' ? '0 0 8px #2DD4BF, 0 0 18px rgba(45,212,191,0.5)' : '0 0 8px #6366F1, 0 0 18px rgba(99,102,241,0.5)',
+            }}
+          />
+          <span className="text-[10px] font-black uppercase tracking-[0.38em] transition-colors duration-500"
+            style={{ color: lastSpeaker === 'user' ? '#2DD4BF' : '#94A3B8' }}>
+            {lastSpeaker === 'user' ? 'You' : personality}
+          </span>
+          {/* Mini waveform bars */}
+          <div className="flex items-end gap-[2px]" style={{ height: '14px' }}>
+            {([9, 13, 7, 14, 10, 6, 12] as number[]).map((h, i) => (
+              <div key={i} className="rounded-full animate-pulse flex-shrink-0"
+                style={{
+                  width: '2px', height: `${h}px`,
+                  background: lastSpeaker === 'user' ? '#2DD4BF' : '#6366F1',
+                  opacity: 0.6,
+                  animationDelay: `${i * 0.14}s`,
+                  animationDuration: `${0.7 + (i % 3) * 0.25}s`,
+                }}
+              />
+            ))}
+          </div>
+          <div className="h-px transition-all duration-700"
+            style={{ width: '40px', background: lastSpeaker === 'user' ? 'linear-gradient(to left, transparent, rgba(45,212,191,0.5))' : 'linear-gradient(to left, transparent, rgba(99,102,241,0.5))' }}
+          />
+        </div>
+        <p className="text-[8px] font-black uppercase tracking-[0.45em] text-text-dim opacity-50">
+          {lastSpeaker === 'user' ? 'Responding' : 'Speaking'}
+        </p>
+      </div>
 
-      {/* Last 2 messages */}
-      <div className="w-full max-w-lg flex flex-col gap-3 px-4">
+      {/* ── TRANSCRIPT — cinematic subtitle style ── */}
+      <div className="w-full max-w-xl px-8 flex flex-col items-center gap-5 z-10">
         {lastTwo.length === 0 ? (
-          <div className="text-center opacity-20">
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-white">
-              Neural Link Established
-            </p>
+          <div className="flex items-center gap-3">
+            <div style={{ width: '20px', height: '1px', background: 'rgba(255,255,255,0.2)' }} />
+            <p className="text-[9px] font-black uppercase tracking-[0.5em] text-white opacity-20">Neural Link Active</p>
+            <div style={{ width: '20px', height: '1px', background: 'rgba(255,255,255,0.2)' }} />
           </div>
         ) : (
-          lastTwo.map((msg, i) => (
-            <TranscriptBubble key={msg.timestamp} msg={msg} isLatest={i === lastTwo.length - 1} />
-          ))
+          lastTwo.map((msg, i) => {
+            const isLatest = i === lastTwo.length - 1;
+            const isAI = !msg.isUser;
+            return (
+              <div key={msg.timestamp} className="w-full text-center"
+                style={{
+                  opacity: isLatest ? 1 : 0.28,
+                  transform: isLatest ? 'translateY(0) scale(1)' : 'translateY(-6px) scale(0.96)',
+                  transition: 'all 600ms cubic-bezier(0.22, 1, 0.36, 1)',
+                }}>
+                <p className="text-[8px] font-black uppercase tracking-[0.4em] mb-1.5"
+                  style={{ color: isAI ? 'rgba(99,102,241,0.55)' : 'rgba(45,212,191,0.55)' }}>
+                  {isAI ? personality : 'You'}
+                </p>
+                <p style={{
+                  fontSize: isLatest ? '15px' : '12px',
+                  fontWeight: isLatest ? 500 : 400,
+                  lineHeight: 1.65,
+                  color: isLatest ? (isAI ? 'rgba(255,255,255,0.91)' : 'rgba(45,212,191,0.88)') : 'rgba(255,255,255,0.32)',
+                  textShadow: isLatest && isAI ? '0 0 48px rgba(99,102,241,0.22)' : 'none',
+                  transition: 'all 600ms ease',
+                }}>
+                  {msg.text}
+                </p>
+              </div>
+            );
+          })
         )}
       </div>
 
-      {/* End button */}
-      <div className="mt-2">{EndButton}</div>
+      {/* ── END BUTTON — ghost, bottom anchored ── */}
+      <div className="mt-auto pt-6 pb-1 z-10">{EndButton}</div>
     </div>
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ), [lastTwo, lastSpeaker, isGenerating, personality]);

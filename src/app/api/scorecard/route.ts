@@ -35,7 +35,9 @@ Respond ONLY with valid JSON in this exact format:
 
     const text = response.text ?? '';
     const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    const scorecard = JSON.parse(jsonStr);
+    const raw = JSON.parse(jsonStr);
+    // Normalize snake_case field from Gemini → camelCase used by the app
+    const scorecard = { ...raw, technicalDepth: raw.technicalDepth ?? raw.technical_depth ?? 5 };
 
     return NextResponse.json(scorecard);
   } catch (err: unknown) {
@@ -44,7 +46,7 @@ Respond ONLY with valid JSON in this exact format:
       {
         clarity: 6,
         confidence: 6,
-        technical_depth: 6,
+        technicalDepth: 6,
         conciseness: 6,
         suggestions: [
           'Practice structured answers using STAR method',

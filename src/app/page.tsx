@@ -124,6 +124,25 @@ export default function Home() {
                 </div>
              </div>
 
+             {/* History Vault card */}
+             <button
+               onClick={() => window.location.href = '/history'}
+               className="tactile-button neural-glass rounded-2xl px-5 py-4 flex items-center justify-between group border border-white/[0.05] hover:border-primary/30 hover:bg-primary/[0.04] transition-all w-full"
+             >
+               <div className="flex items-center gap-3">
+                 <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                 </div>
+                 <div className="text-left">
+                   <div className="text-xs font-black text-white leading-none">History Vault</div>
+                   <div className="text-[9px] font-black uppercase tracking-widest text-text-dim mt-0.5">Past Sessions</div>
+                 </div>
+               </div>
+               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="text-text-dim group-hover:text-primary group-hover:translate-x-0.5 transition-all">
+                 <path d="M9 18l6-6-6-6"/>
+               </svg>
+             </button>
+
              <button
                onClick={navigate}
                className="tactile-button h-24 rounded-[2rem] bg-white group relative overflow-hidden shadow-2xl w-full"
