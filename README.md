@@ -131,18 +131,4 @@ After deployment, Cloud Run outputs a URL like `https://crux-ai-130670616074.us-
 
 ---
 
-## Hackathon Compliance
-
-| Requirement | Status |
-|---|---|
-| Category: Live Agents (real-time audio/vision) | ✅ |
-| Gemini model usage | ✅ `gemini-2.5-flash-native-audio-preview` + `gemini-2.5-flash` |
-| Google GenAI SDK (`@google/genai`) | ✅ |
-| Google Cloud service | ✅ Google Cloud Run |
-| Public repo + spin-up instructions | ✅ This README |
-| Architecture diagram | ✅ Mermaid above + [FigJam](https://www.figma.com/online-whiteboard/create-diagram/f53d8585-5dcd-4ad4-9adc-cfff6e749c90) |
-| Demo video < 4 min | ✅ |
-
----
-
 Built for the [Gemini Live Agent Challenge](https://geminiliveagentchallenge.devpost.com/) — **#GeminiLiveAgentChallenge**
