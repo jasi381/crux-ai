@@ -1,70 +1,158 @@
-# Getting Started with Create React App
+# Crux.ai
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+**Crux.ai** is a next-generation mock interview platform built for the **Gemini Live Agent Challenge**. It uses the **Gemini 2.5 Flash Native Audio** model to conduct full-duplex, real-time voice interviews — just like a real one.
 
-## Available Scripts
+You speak. The AI listens, asks follow-ups, increases difficulty, and at the end scores your performance across four dimensions.
 
-In the project directory, you can run:
+## Features
 
-### `npm start`
+- **Live Voice Interviews** — Full-duplex audio via Gemini 2.5 Flash Live API. No typing, no lag.
+- **4 Interview Types** — DSA, System Design, Android Developer, HR Interview
+- **3 Interviewer Personalities** — Friendly (hints + encouragement), Strict (no hand-holding), FAANG-style (highest bar)
+- **Live DSA Problem Card** — For DSA interviews, a Gemini-generated problem appears in real-time as the AI reads it aloud
+- **Real-time Transcription** — Character-by-character transcript of both sides of the conversation
+- **Automated Scorecard** — Gemini 2.5 Flash evaluates the transcript and scores: Clarity, Confidence, Technical Depth, Conciseness (each /10) + 3–4 coaching suggestions
+- **Interview History** — Local history vault of last 50 sessions with scores + PNG export
+- **Neural UI** — Animated orb visualizer, dark glassmorphism theme, bento grid layout
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+---
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Architecture
 
-### `npm test`
+![Crux.ai System Architecture](public/architecture.jpg)
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### How it works
 
-### `npm run build`
+1. User selects interview type + personality on the home page
+2. Browser opens a WebSocket to `/api/ws` on the Node.js custom server
+3. Server opens a Gemini Live session and relays audio frames bidirectionally
+4. For DSA interviews, the server pre-generates a problem and sends it when the AI first speaks
+5. On "End Interview", the full transcript is sent to `POST /api/scorecard` → Gemini scores it
+6. Results are displayed on the scorecard page and optionally saved to Firestore
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+**Why a custom server?** Next.js 15 App Router doesn't support WebSocket upgrades natively. A thin Node.js HTTP server wraps Next.js to handle both HTTP and WebSocket at the same port — deployable as a single Docker container on Cloud Run.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+---
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Tech Stack
 
-### `npm run eject`
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 15 (App Router), React 19, TailwindCSS, TypeScript |
+| Backend | Node.js 20, Custom HTTP + WebSocket server (`ws`) |
+| AI — Live Interview | `@google/genai` → `gemini-2.5-flash-native-audio-preview-12-2025` |
+| AI — Scorecard | `@google/genai` → `gemini-2.5-flash` |
+| Auth | Firebase Authentication (Google Sign-In) |
+| Database | Firebase Firestore |
+| Deployment | Docker (multi-stage) → Google Cloud Run |
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+---
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## Local Setup
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+### Prerequisites
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+- Node.js 20+
+- Gemini API key from [Google AI Studio](https://aistudio.google.com/)
+- Firebase project (Auth + Firestore enabled)
 
-## Learn More
+### Steps
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+**1. Clone and install**
+```bash
+git clone https://github.com/your-username/crux-ai.git
+cd crux-ai
+npm install
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+**2. Configure environment variables**
 
-### Code Splitting
+Copy the example and fill in your keys:
+```bash
+cp .env.local.example .env.local
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+```env
+# Gemini API (server-side only — never exposed to browser)
+GEMINI_API_KEY=your_gemini_api_key_here
 
-### Analyzing the Bundle Size
+# Firebase (client-side — from Firebase Console > Project Settings)
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+**3. Run locally**
+```bash
+npm run dev
+```
 
-### Making a Progressive Web App
+Open [http://localhost:3000](http://localhost:3000) — select an interview type and personality, then click **INITIATE_SESSION**.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+---
 
-### Advanced Configuration
+## Docker
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+Build and run locally with Docker:
 
-### Deployment
+```bash
+docker build -t crux-ai .
+docker run -p 3000:3000 --env-file .env.local crux-ai
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+---
 
-### `npm run build` fails to minify
+## Google Cloud Run Deployment
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+### One-time setup
+
+```bash
+# Authenticate and set your project
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
+
+# Enable required APIs
+gcloud services enable run.googleapis.com artifactregistry.googleapis.com cloudbuild.googleapis.com
+```
+
+### Build and deploy
+
+```bash
+# Build the container image using Cloud Build
+gcloud builds submit --tag gcr.io/YOUR_PROJECT_ID/crux-ai .
+
+# Deploy to Cloud Run
+gcloud run deploy crux-ai \
+  --image gcr.io/YOUR_PROJECT_ID/crux-ai \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --port 3000 \
+  --memory 512Mi \
+  --set-env-vars "GEMINI_API_KEY=YOUR_GEMINI_KEY,NEXT_PUBLIC_FIREBASE_API_KEY=YOUR_FB_KEY,NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=YOUR_DOMAIN,NEXT_PUBLIC_FIREBASE_PROJECT_ID=YOUR_PROJECT,NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=YOUR_BUCKET,NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=YOUR_SENDER_ID,NEXT_PUBLIC_FIREBASE_APP_ID=YOUR_APP_ID"
+```
+
+> **Note:** Cloud Run supports WebSocket connections out of the box. No extra configuration needed.
+
+After deployment, Cloud Run outputs a URL like `https://crux-ai-130670616074.us-central1.run.app`. Add this to Firebase Console under **Authentication > Authorized Domains**.
+
+---
+
+## Hackathon Compliance
+
+| Requirement | Status |
+|---|---|
+| Category: Live Agents (real-time audio/vision) | ✅ |
+| Gemini model usage | ✅ `gemini-2.5-flash-native-audio-preview` + `gemini-2.5-flash` |
+| Google GenAI SDK (`@google/genai`) | ✅ |
+| Google Cloud service | ✅ Google Cloud Run |
+| Public repo + spin-up instructions | ✅ This README |
+| Architecture diagram | ✅ Mermaid above + [FigJam](https://www.figma.com/online-whiteboard/create-diagram/f53d8585-5dcd-4ad4-9adc-cfff6e749c90) |
+| Demo video < 4 min | ✅ |
+
+---
+
+Built for the [Gemini Live Agent Challenge](https://geminiliveagentchallenge.devpost.com/) — **#GeminiLiveAgentChallenge**
