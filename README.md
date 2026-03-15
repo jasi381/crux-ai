@@ -4,6 +4,8 @@
 
 You speak. The AI listens, asks follow-ups, increases difficulty, and at the end scores your performance across four dimensions.
 
+**[Live Demo →](https://crux-ai-130670616074.us-central1.run.app)**
+
 ## Features
 
 - **Live Voice Interviews** — Full-duplex audio via Gemini 2.5 Flash Live API. No typing, no lag.
@@ -58,7 +60,7 @@ You speak. The AI listens, asks follow-ups, increases difficulty, and at the end
 
 **1. Clone and install**
 ```bash
-git clone https://github.com/your-username/crux-ai.git
+git clone https://github.com/jasi381/crux-ai.git
 cd crux-ai
 npm install
 ```
