@@ -1,0 +1,118 @@
+<svg width="500" height="500" viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+
+    <!-- Background ambient glow -->
+    <radialGradient id="bgGlow" cx="50.4%" cy="50.8%" r="38%">
+      <stop offset="0%"   stop-color="#6366F1" stop-opacity="0.20"/>
+      <stop offset="50%"  stop-color="#6366F1" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#07070B" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Secondary teal bloom (bottom-right quadrant) -->
+    <radialGradient id="tealBloom" cx="72%" cy="52%" r="30%">
+      <stop offset="0%"   stop-color="#2DD4BF" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#07070B" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Acrux: large bloom layer (just Gaussian, no merge — used as soft backing glow) -->
+    <filter id="bigBloom" x="-120%" y="-120%" width="340%" height="340%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="22"/>
+    </filter>
+
+    <!-- Indigo star glow (Gacrux + Acrux sharp layer) -->
+    <filter id="indigoGlow" x="-70%" y="-70%" width="240%" height="240%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Teal star glow (Beta + Delta) -->
+    <filter id="tealGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Tiny glow for Epsilon -->
+    <filter id="epsilonGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+  </defs>
+
+  <!-- ── BACKGROUND ── -->
+  <rect width="500" height="500" rx="110" fill="#07070B"/>
+
+  <!-- Ambient indigo glow at constellation center -->
+  <circle cx="252" cy="254" r="180" fill="url(#bgGlow)"/>
+
+  <!-- Teal counter-glow (right side, Beta direction) -->
+  <circle cx="252" cy="254" r="180" fill="url(#tealBloom)"/>
+
+  <!-- ── RETICLE ──
+       C = 2π × 148 ≈ 930px
+       dasharray="744 186" → 80% stroke, 20% gap
+       Default stroke starts at E (3-o'clock) going clockwise
+       Gap falls at NNE→E quadrant — between Gacrux (N) and Beta (E), no stars there ✓ -->
+  <circle
+    cx="252" cy="254" r="148"
+    stroke="#6366F1" stroke-width="1.5" stroke-opacity="0.26" fill="none"
+    stroke-dasharray="744 186"
+  />
+
+  <!-- Cardinal tick marks (N, W, S — skip E since it's inside the gap) -->
+  <!-- N tick: top of circle y=254-148=106, drawn y=99→108 -->
+  <line x1="252" y1="99"  x2="252" y2="108" stroke="#6366F1" stroke-width="1.5" stroke-opacity="0.38" stroke-linecap="round"/>
+  <!-- W tick: left of circle x=252-148=104, drawn x=97→106 -->
+  <line x1="97"  y1="254" x2="106"  y2="254" stroke="#6366F1" stroke-width="1.5" stroke-opacity="0.38" stroke-linecap="round"/>
+  <!-- S tick: bottom of circle y=254+148=402, drawn y=395→404 -->
+  <line x1="252" y1="395" x2="252" y2="404" stroke="#6366F1" stroke-width="1.5" stroke-opacity="0.38" stroke-linecap="round"/>
+
+  <!-- ── STARS (back → front: smallest → largest) ──
+
+       All needle stars use formula:
+         M cx cy-v  L cx+s cy-s  L cx+h cy  L cx+s cy+s
+         L cx cy+v  L cx-s cy+s  L cx-h cy  L cx-s cy-s  Z
+       where v=vertical radius, h=horizontal radius, s=inner×0.7071
+
+       Constellation layout (Crux Australis):
+         Acrux  (α) — bottom, brightest  : (252, 344) indigo   v=78  h=13  s=7.1
+         Gacrux (γ) — top                : (252, 163) indigo   v=52  h=10  s=5.0
+         Beta   (β) — right              : (358, 256) teal     v=40  h=8   s=4.2
+         Delta  (δ) — left, lowest       : (145, 272) teal     v=30  h=6   s=2.8
+         Epsilon(ε) — 5th star, NE area  : (314, 214) white    v=11  h=2.5 s=1.4
+  -->
+
+  <!-- Epsilon Crucis (ε): tiny 5th star, white, upper-right -->
+  <path d="M314 203 L315.4 212.6 L316.5 214 L315.4 215.4 L314 225 L312.6 215.4 L311.5 214 L312.6 212.6 Z"
+    fill="#FFFFFF" opacity="0.55" filter="url(#epsilonGlow)"/>
+
+  <!-- Delta Crucis (δ): left arm — small, teal -->
+  <path d="M145 242 L147.8 269.2 L151 272 L147.8 274.8 L145 302 L142.2 274.8 L139 272 L142.2 269.2 Z"
+    fill="#2DD4BF" filter="url(#tealGlow)"/>
+
+  <!-- Beta Crucis (β): right arm — medium, teal -->
+  <path d="M358 216 L362.2 251.8 L366 256 L362.2 260.2 L358 296 L353.8 260.2 L350 256 L353.8 251.8 Z"
+    fill="#2DD4BF" filter="url(#tealGlow)"/>
+
+  <!-- Gacrux (γ): top arm — medium-large, indigo -->
+  <path d="M252 111 L257 158 L262 163 L257 168 L252 215 L247 168 L242 163 L247 158 Z"
+    fill="#6366F1" filter="url(#indigoGlow)"/>
+
+  <!-- Acrux (α): bottom arm — largest, brightest -->
+  <!-- Soft bloom backing (pure blur, no source merge) -->
+  <path d="M252 266 L259.1 336.9 L265 344 L259.1 351.1 L252 422 L244.9 351.1 L239 344 L244.9 336.9 Z"
+    fill="#6366F1" opacity="0.28" filter="url(#bigBloom)"/>
+  <!-- Sharp star layer on top -->
+  <path d="M252 266 L259.1 336.9 L265 344 L259.1 351.1 L252 422 L244.9 351.1 L239 344 L244.9 336.9 Z"
+    fill="#6366F1" filter="url(#indigoGlow)"/>
+
+</svg>

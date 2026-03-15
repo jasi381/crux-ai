@@ -1,0 +1,112 @@
+<svg width="640" height="200" viewBox="0 0 640 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+
+    <radialGradient id="bgGlowL" cx="28%" cy="50%" r="22%">
+      <stop offset="0%"   stop-color="#6366F1" stop-opacity="0.16"/>
+      <stop offset="100%" stop-color="#07070B" stop-opacity="0"/>
+    </radialGradient>
+
+    <filter id="bigBloomL" x="-120%" y="-120%" width="340%" height="340%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="9"/>
+    </filter>
+    <filter id="indigoGlowL" x="-70%" y="-70%" width="240%" height="240%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3.2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="tealGlowL" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="epsilonGlowL" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+  </defs>
+
+  <!-- Background -->
+  <rect width="640" height="200" rx="20" fill="#07070B"/>
+  <circle cx="100" cy="100" r="72" fill="url(#bgGlowL)"/>
+
+  <!-- ── ICON MARK (scaled ~0.38× from 500px → fits in ~190px at center ~100,100) ──
+       Scale factor: 190/500 = 0.38
+       Origin shift: scale around (252,254) → translate to (100,100)
+       Transform: translate(100,100) scale(0.38) translate(-252,-254)
+       Simplified: translate(100-252×0.38, 100-254×0.38) = translate(4.24, 3.48) scale(0.38)
+  -->
+  <g transform="translate(4.24 3.48) scale(0.38)">
+
+    <!-- Reticle -->
+    <circle cx="252" cy="254" r="148"
+      stroke="#6366F1" stroke-width="1.5" stroke-opacity="0.26" fill="none"
+      stroke-dasharray="744 186"/>
+
+    <!-- N tick -->
+    <line x1="252" y1="99"  x2="252" y2="108" stroke="#6366F1" stroke-width="1.5" stroke-opacity="0.38" stroke-linecap="round"/>
+    <!-- W tick -->
+    <line x1="97"  y1="254" x2="106"  y2="254" stroke="#6366F1" stroke-width="1.5" stroke-opacity="0.38" stroke-linecap="round"/>
+    <!-- S tick -->
+    <line x1="252" y1="395" x2="252" y2="404" stroke="#6366F1" stroke-width="1.5" stroke-opacity="0.38" stroke-linecap="round"/>
+
+    <!-- Epsilon (ε) -->
+    <path d="M314 203 L315.4 212.6 L316.5 214 L315.4 215.4 L314 225 L312.6 215.4 L311.5 214 L312.6 212.6 Z"
+      fill="#FFFFFF" opacity="0.55" filter="url(#epsilonGlowL)"/>
+
+    <!-- Delta (δ) -->
+    <path d="M145 242 L147.8 269.2 L151 272 L147.8 274.8 L145 302 L142.2 274.8 L139 272 L142.2 269.2 Z"
+      fill="#2DD4BF" filter="url(#tealGlowL)"/>
+
+    <!-- Beta (β) -->
+    <path d="M358 216 L362.2 251.8 L366 256 L362.2 260.2 L358 296 L353.8 260.2 L350 256 L353.8 251.8 Z"
+      fill="#2DD4BF" filter="url(#tealGlowL)"/>
+
+    <!-- Gacrux (γ) -->
+    <path d="M252 111 L257 158 L262 163 L257 168 L252 215 L247 168 L242 163 L247 158 Z"
+      fill="#6366F1" filter="url(#indigoGlowL)"/>
+
+    <!-- Acrux bloom -->
+    <path d="M252 266 L259.1 336.9 L265 344 L259.1 351.1 L252 422 L244.9 351.1 L239 344 L244.9 336.9 Z"
+      fill="#6366F1" opacity="0.28" filter="url(#bigBloomL)"/>
+    <!-- Acrux sharp -->
+    <path d="M252 266 L259.1 336.9 L265 344 L259.1 351.1 L252 422 L244.9 351.1 L239 344 L244.9 336.9 Z"
+      fill="#6366F1" filter="url(#indigoGlowL)"/>
+
+  </g>
+
+  <!-- Thin vertical separator -->
+  <line x1="196" y1="58" x2="196" y2="142"
+    stroke="#6366F1" stroke-width="1" stroke-opacity="0.18" stroke-linecap="round"/>
+
+  <!-- ── WORDMARK ── -->
+  <!-- "CRUX" — white, heavy, tight-tracked -->
+  <text
+    x="222" y="119"
+    font-family="'SF Pro Display', 'Helvetica Neue', 'Arial Black', sans-serif"
+    font-size="62"
+    font-weight="900"
+    letter-spacing="-2"
+    fill="#FFFFFF"
+  >CRUX</text>
+
+  <!-- ".ai" — indigo primary color -->
+  <text
+    x="437" y="119"
+    font-family="'SF Pro Display', 'Helvetica Neue', 'Arial Black', sans-serif"
+    font-size="62"
+    font-weight="900"
+    letter-spacing="-1"
+    fill="#6366F1"
+  >.ai</text>
+
+  <!-- Tagline — very small, teal, below wordmark -->
+  <text
+    x="222" y="146"
+    font-family="'SF Pro Text', 'Helvetica Neue', Arial, sans-serif"
+    font-size="11"
+    font-weight="500"
+    letter-spacing="3.5"
+    fill="#2DD4BF"
+    opacity="0.7"
+  >MOCK INTERVIEWS · AI</text>
+
+</svg>

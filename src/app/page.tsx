@@ -39,8 +39,8 @@ export default function Home() {
       <div className="relative z-10 max-w-5xl w-full">
         {/* Header Section */}
         <header className="mb-12 flex flex-col items-center text-center">
-          <div className="w-16 h-16 neural-glass rounded-2xl flex items-center justify-center mb-6 after-scan relative overflow-hidden">
-             <div className="w-8 h-8 bg-gradient-to-tr from-primary to-secondary rounded-lg animate-pulse" />
+          <div className="w-16 h-16 mb-6">
+            <img src="/crux-icon.svg" alt="Crux.ai" className="w-full h-full" />
           </div>
           <h1 className="text-5xl md:text-7xl font-black tracking-tightest mb-4 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/40">
             Crux<span className="text-primary font-serif">.ai</span>
