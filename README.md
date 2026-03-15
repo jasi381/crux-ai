@@ -28,7 +28,7 @@ You speak. The AI listens, asks follow-ups, increases difficulty, and at the end
 3. Server opens a Gemini Live session and relays audio frames bidirectionally
 4. For DSA interviews, the server pre-generates a problem and sends it when the AI first speaks
 5. On "End Interview", the full transcript is sent to `POST /api/scorecard` → Gemini scores it
-6. Results are displayed on the scorecard page and optionally saved to Firestore
+6. Results are displayed on the scorecard page and saved to local history (localStorage)
 
 **Why a custom server?** Next.js 15 App Router doesn't support WebSocket upgrades natively. A thin Node.js HTTP server wraps Next.js to handle both HTTP and WebSocket at the same port — deployable as a single Docker container on Cloud Run.
 
@@ -42,8 +42,7 @@ You speak. The AI listens, asks follow-ups, increases difficulty, and at the end
 | Backend | Node.js 20, Custom HTTP + WebSocket server (`ws`) |
 | AI — Live Interview | `@google/genai` → `gemini-2.5-flash-native-audio-preview-12-2025` |
 | AI — Scorecard | `@google/genai` → `gemini-2.5-flash` |
-| Auth | Firebase Authentication (Google Sign-In) |
-| Database | Firebase Firestore |
+| Storage | Browser localStorage (interview history, last 50 sessions) |
 | Deployment | Docker (multi-stage) → Google Cloud Run |
 
 ---
@@ -54,7 +53,6 @@ You speak. The AI listens, asks follow-ups, increases difficulty, and at the end
 
 - Node.js 20+
 - Gemini API key from [Google AI Studio](https://aistudio.google.com/)
-- Firebase project (Auth + Firestore enabled)
 
 ### Steps
 
@@ -75,14 +73,6 @@ cp .env.local.example .env.local
 ```env
 # Gemini API (server-side only — never exposed to browser)
 GEMINI_API_KEY=your_gemini_api_key_here
-
-# Firebase (client-side — from Firebase Console > Project Settings)
-NEXT_PUBLIC_FIREBASE_API_KEY=
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
-NEXT_PUBLIC_FIREBASE_APP_ID=
 ```
 
 **3. Run locally**
@@ -132,12 +122,12 @@ gcloud run deploy crux-ai \
   --allow-unauthenticated \
   --port 3000 \
   --memory 512Mi \
-  --set-env-vars "GEMINI_API_KEY=YOUR_GEMINI_KEY,NEXT_PUBLIC_FIREBASE_API_KEY=YOUR_FB_KEY,NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=YOUR_DOMAIN,NEXT_PUBLIC_FIREBASE_PROJECT_ID=YOUR_PROJECT,NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=YOUR_BUCKET,NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=YOUR_SENDER_ID,NEXT_PUBLIC_FIREBASE_APP_ID=YOUR_APP_ID"
+  --set-env-vars "GEMINI_API_KEY=YOUR_GEMINI_KEY"
 ```
 
 > **Note:** Cloud Run supports WebSocket connections out of the box. No extra configuration needed.
 
-After deployment, Cloud Run outputs a URL like `https://crux-ai-130670616074.us-central1.run.app`. Add this to Firebase Console under **Authentication > Authorized Domains**.
+After deployment, Cloud Run outputs a URL like `https://crux-ai-130670616074.us-central1.run.app`.
 
 ---
 
