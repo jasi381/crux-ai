@@ -375,6 +375,24 @@ function InterviewContent() {
   const transcriptEndRef  = useRef<HTMLDivElement>(null);
   const connectedRef      = useRef(false);
 
+  // Pre-fetch DSA problem on mount so the first speak() can fire immediately
+  // inside the Start-click gesture window (browsers expire user-activation
+  // after ~5s, so we don't want to await Groq before our first audio call).
+  const prefetchedProblemRef = useRef<Promise<DSAProblem | null> | null>(null);
+  useEffect(() => {
+    if (interviewType !== 'DSA') return;
+    prefetchedProblemRef.current = fetch('/api/generate-dsa', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .catch((e) => {
+        console.error('[DSA] prefetch failed', e);
+        return null;
+      });
+  }, [interviewType]);
+
   // Auto-scroll in chat mode
   useEffect(() => {
     if (viewMode === 'chat' && transcriptEndRef.current) {
@@ -444,19 +462,21 @@ function InterviewContent() {
 
   const connect = useCallback(async () => {
     try {
-      // Kick off DSA problem fetch in parallel (only for DSA)
-      const problemPromise: Promise<DSAProblem | null> = interviewType === 'DSA'
-        ? fetch('/api/generate-dsa', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: '{}',
-          })
-            .then((r) => (r.ok ? r.json() : null))
-            .catch((e) => {
-              console.error('[DSA] initial problem fetch failed', e);
-              return null;
+      // Use the prefetched problem if available; otherwise fetch on demand.
+      const problemPromise: Promise<DSAProblem | null> =
+        prefetchedProblemRef.current ??
+        (interviewType === 'DSA'
+          ? fetch('/api/generate-dsa', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: '{}',
             })
-        : Promise.resolve(null);
+              .then((r) => (r.ok ? r.json() : null))
+              .catch((e) => {
+                console.error('[DSA] initial problem fetch failed', e);
+                return null;
+              })
+          : Promise.resolve(null));
 
       const problem = await problemPromise;
       if (problem && problem.title) setDsaProblem(problem);
@@ -546,15 +566,23 @@ function InterviewContent() {
     try { cancelRef.current(); } catch {}
   }, []);
 
+  // Cleanup-only effect — connect is fired synchronously from the Start click
+  // handler so the first puter.ai.txt2speech() call stays inside the user-gesture
+  // window (browsers block audio + popups outside it).
   useEffect(() => {
-    if (!started) return;
-    setStatus('connecting');
-    connect();
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       teardown();
     };
-  }, [started, connect, teardown]);
+  }, [teardown]);
+
+  const handleStart = useCallback(() => {
+    if (started) return;
+    setStarted(true);
+    setStatus('connecting');
+    // Fire-and-forget — async chain inherits user-gesture activation from click.
+    void connect();
+  }, [started, connect]);
 
   const handleEndInterview = async () => {
     setIsGenerating(true);
@@ -946,7 +974,7 @@ function InterviewContent() {
               </p>
             </div>
             <button
-              onClick={() => setStarted(true)}
+              onClick={handleStart}
               className="tactile-button group relative overflow-hidden rounded-2xl px-8 py-4 bg-white w-full"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-primary to-secondary opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
