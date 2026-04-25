@@ -365,8 +365,14 @@ function InterviewContent() {
   useEffect(() => { cancelRef.current = voice.cancel; }, [voice.cancel]);
 
   // Loop control
-  const runningRef        = useRef(false);
+  const runningRef         = useRef(false);
   const currentUserTurnRef = useRef(0);
+
+  // Text input — lets the user type instead of (or in addition to) speaking.
+  // The resolver is set while we're awaiting a user turn; submitting text
+  // resolves it ahead of STT, cancelling the recogniser cleanly.
+  const userInputResolverRef = useRef<((text: string) => void) | null>(null);
+  const [inputText, setInputText] = useState('');
 
   // UI refs
   const timerRef          = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -511,7 +517,18 @@ function InterviewContent() {
         currentUserTurnRef.current = userTurn;
         setLastSpeaker('user');
 
-        const userText = await listenRef.current();
+        // Race STT against text input. Whichever resolves first wins the turn.
+        const userText = await new Promise<string>((resolve) => {
+          let settled = false;
+          const settle = (val: string) => {
+            if (settled) return;
+            settled = true;
+            userInputResolverRef.current = null;
+            resolve(val);
+          };
+          userInputResolverRef.current = settle;
+          listenRef.current().then(settle);
+        });
         if (!runningRef.current) break;
         if (!userText) {
           // Empty turn (silence/no permission) — back to listening.
@@ -583,6 +600,18 @@ function InterviewContent() {
     // Fire-and-forget — async chain inherits user-gesture activation from click.
     void connect();
   }, [started, connect]);
+
+  const submitText = useCallback(() => {
+    const trimmed = inputText.trim();
+    if (!trimmed) return;
+    const resolver = userInputResolverRef.current;
+    if (!resolver) return;
+    // Cancel STT so the recognition session releases the mic — its onend will
+    // resolve with whatever it had, but our settle guard ignores that.
+    try { cancelRef.current(); } catch {}
+    resolver(trimmed);
+    setInputText('');
+  }, [inputText]);
 
   const handleEndInterview = async () => {
     setIsGenerating(true);
@@ -755,12 +784,46 @@ function InterviewContent() {
           ))}
           <div ref={transcriptEndRef} />
         </div>
+
+        <div className="border-t border-white/[0.05] p-3 flex items-center gap-2 flex-shrink-0">
+          <input
+            type="text"
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submitText();
+              }
+            }}
+            disabled={lastSpeaker !== 'user' || status !== 'connected'}
+            placeholder={
+              lastSpeaker === 'user'
+                ? 'Type your answer or just speak…'
+                : status === 'connected'
+                  ? `${personality} is speaking…`
+                  : 'Connecting…'
+            }
+            className="flex-1 bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-text-dim/70 focus:outline-none focus:border-primary/40 focus:bg-white/[0.06] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          />
+          <button
+            onClick={submitText}
+            disabled={!inputText.trim() || lastSpeaker !== 'user' || status !== 'connected'}
+            className="tactile-button h-10 px-4 rounded-xl bg-primary/15 border border-primary/30 text-primary text-[10px] font-black uppercase tracking-[0.2em] hover:bg-primary/25 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1.5"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+            Send
+          </button>
+        </div>
       </div>
 
       <div className="flex justify-center md:hidden">{EndButton}</div>
     </div>
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [transcript, lastSpeaker, status, isGenerating, personality, dsaProblem]);
+  ), [transcript, lastSpeaker, status, isGenerating, personality, dsaProblem, inputText, submitText]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const ImmersiveMode = useMemo(() => (
