@@ -3,6 +3,15 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect, useRef, useCallback, useMemo, memo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { TranscriptMessage, DSAProblem } from '@/types/interview';
+import {
+  buildSystemPrompt,
+  buildGreeting,
+  type InterviewType,
+  type InterviewPersonality,
+} from '@/lib/interview-prompts';
+import { voiceForPersonality } from '@/lib/cloudVoices';
+import { useInterviewVoice } from '@/hooks/useInterviewVoice';
+import type { ChatMessage } from '@/lib/groq';
 
 // ─── Neural Orb (Canvas) ──────────────────────────────────────────────────────
 function NeuralOrb({
@@ -34,7 +43,6 @@ function NeuralOrb({
       const secondary = isAI ? '#818CF8' : '#5EEAD4';
       const intensity = 0.9 + 0.1 * Math.sin(t * 3);
 
-      // Outer halo
       const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, sz * 0.5);
       halo.addColorStop(0,   `${primary}08`);
       halo.addColorStop(0.6, `${primary}14`);
@@ -44,7 +52,6 @@ function NeuralOrb({
       ctx.arc(cx, cy, sz * 0.5, 0, Math.PI * 2);
       ctx.fill();
 
-      // Core body
       const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, sz * 0.45);
       grad.addColorStop(0,   `${primary}30`);
       grad.addColorStop(0.5, `${secondary}18`);
@@ -54,7 +61,6 @@ function NeuralOrb({
       ctx.arc(cx, cy, sz * 0.45 * intensity, 0, Math.PI * 2);
       ctx.fill();
 
-      // Orbit rings — alternating rotation direction
       for (let i = 0; i < 3; i++) {
         const r   = sz * (0.18 + i * 0.09) * intensity;
         const dir = i % 2 === 0 ? 1 : -1;
@@ -68,7 +74,6 @@ function NeuralOrb({
       }
       ctx.setLineDash([]);
 
-      // Plasma blobs
       for (let i = 0; i < 8; i++) {
         const angle = (i * Math.PI * 2) / 8 + t * 0.7;
         const drift = 12 * Math.sin(t * 1.8 + i);
@@ -84,7 +89,6 @@ function NeuralOrb({
         ctx.fill();
       }
 
-      // Orbiting particles
       for (let p = 0; p < 18; p++) {
         const angle  = t * 0.5 + (p * Math.PI * 2) / 18;
         const orbitR = sz * 0.38 + Math.sin(t * 1.2 + p * 0.8) * (sz * 0.04);
@@ -96,7 +100,6 @@ function NeuralOrb({
         ctx.fill();
       }
 
-      // Inner core bright spot
       const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, sz * 0.08);
       core.addColorStop(0,   `${primary}FF`);
       core.addColorStop(0.4, `${primary}60`);
@@ -155,7 +158,6 @@ const TranscriptBubble = memo(function TranscriptBubble({ msg, isLatest }: { msg
         msg.isUser ? 'flex-row-reverse' : 'flex-row'
       }`}
     >
-      {/* Avatar chip */}
       <div
         className={`w-7 h-7 rounded-xl shrink-0 flex items-center justify-center text-[9px] font-black shadow-md ${
           msg.isUser
@@ -165,8 +167,6 @@ const TranscriptBubble = memo(function TranscriptBubble({ msg, isLatest }: { msg
       >
         {msg.isUser ? 'YOU' : 'AI'}
       </div>
-
-      {/* Bubble + timestamp */}
       <div
         className={`flex flex-col max-w-[78%] gap-1 ${
           msg.isUser ? 'items-end' : 'items-start'
@@ -204,7 +204,6 @@ function ProblemCard({ problem }: { problem: DSAProblem }) {
 
   return (
     <div className="rounded-2xl border border-primary/20 overflow-hidden" style={{ background: 'rgba(99,102,241,0.04)' }}>
-      {/* Header bar */}
       <div className="flex items-center gap-2.5 px-4 py-3 border-b border-white/[0.06]">
         <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(99,102,241,1)]" />
         <span className="text-[9px] font-black uppercase tracking-[0.3em] text-primary flex-1">DSA Problem</span>
@@ -217,20 +216,17 @@ function ProblemCard({ problem }: { problem: DSAProblem }) {
       </div>
 
       <div className="p-4 flex flex-col gap-4">
-        {/* Title + Description */}
         <div>
           <h3 className="font-bold text-white text-sm mb-1.5">{problem.title}</h3>
           <p className="text-xs text-white/65 leading-relaxed">{problem.description}</p>
         </div>
 
-        {/* Examples — numbered, collapsible, LeetCode-style */}
         {problem.testCases?.length > 0 && (
           <div className="flex flex-col gap-2">
             {problem.testCases.map((tc, i) => {
               const isOpen = expandedIdx === i;
               return (
                 <div key={i} className="rounded-xl overflow-hidden border border-white/[0.06]">
-                  {/* Example header — click to toggle */}
                   <button
                     onClick={() => setExpandedIdx(isOpen ? null : i)}
                     className="w-full flex items-center justify-between px-3 py-2 bg-white/[0.03] hover:bg-white/[0.05] transition-colors"
@@ -247,21 +243,16 @@ function ProblemCard({ problem }: { problem: DSAProblem }) {
                       <path d="M2 4l4 4 4-4" />
                     </svg>
                   </button>
-
-                  {/* Expandable body */}
                   {isOpen && (
                     <div className="px-3 py-3 bg-black/20 flex flex-col gap-2 border-t border-white/[0.04]">
-                      {/* Input */}
                       <div className="flex items-baseline gap-2 font-mono text-xs">
                         <span className="text-[9px] font-black uppercase tracking-widest text-text-dim w-12 shrink-0">Input</span>
                         <span className="text-secondary">{tc.input}</span>
                       </div>
-                      {/* Output */}
                       <div className="flex items-baseline gap-2 font-mono text-xs">
                         <span className="text-[9px] font-black uppercase tracking-widest text-text-dim w-12 shrink-0">Output</span>
                         <span className="text-primary">{tc.output}</span>
                       </div>
-                      {/* Explanation */}
                       {tc.explanation && (
                         <div className="flex items-start gap-2 mt-0.5 pt-2 border-t border-white/[0.04]">
                           <span className="text-[9px] font-black uppercase tracking-widest text-text-dim w-12 shrink-0 pt-px">Explain</span>
@@ -276,7 +267,6 @@ function ProblemCard({ problem }: { problem: DSAProblem }) {
           </div>
         )}
 
-        {/* Constraints */}
         {problem.constraints?.length > 0 && (
           <div>
             <div className="text-[9px] font-black uppercase tracking-[0.25em] text-text-dim mb-1.5">Constraints</div>
@@ -335,6 +325,20 @@ function ModeToggle({
   );
 }
 
+// DSA-transition heuristic — triggers a new problem when the AI narrates it.
+const NEW_PROBLEM_PHRASES = [
+  'examples are on your screen',
+  'transition to a different problem',
+  'different problem',
+  "let's move on to",
+  'move on to',
+  'next problem',
+  'new problem',
+  'another problem',
+  "let's try",
+  'next one is',
+];
+
 // ─── Main Interview Content ───────────────────────────────────────────────────
 function InterviewContent() {
   const router = useRouter();
@@ -347,98 +351,28 @@ function InterviewContent() {
   const [duration, setDuration]         = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastSpeaker, setLastSpeaker]   = useState<'ai' | 'user' | null>('ai');
-  const [userInput, setUserInput]       = useState('');
-  const [visionMode, setVisionMode]     = useState<'off' | 'screen'>('off');
   const [viewMode, setViewMode]         = useState<'chat' | 'immersive'>('chat');
   const [dsaProblem, setDsaProblem]     = useState<DSAProblem | null>(null);
 
-  const wsRef             = useRef<WebSocket | null>(null);
-  const audioCtxRef       = useRef<AudioContext | null>(null); // mic context (16kHz)
-  const playbackCtxRef    = useRef<AudioContext | null>(null); // playback context (24kHz)
-  const processorRef      = useRef<ScriptProcessorNode | null>(null);
-  const sourceRef         = useRef<MediaStreamAudioSourceNode | null>(null);
-  const streamRef         = useRef<MediaStream | null>(null);
-  const visionStreamRef   = useRef<MediaStream | null>(null);
-  const videoRef          = useRef<HTMLVideoElement | null>(null);
-  const captureCanvasRef  = useRef<HTMLCanvasElement | null>(null);
-  const captureTimerRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Voice (Puter TTS + browser STT). Voice methods are stable across renders.
+  const voice = useInterviewVoice(voiceForPersonality(personality as InterviewPersonality));
+  const speakRef  = useRef(voice.speak);
+  const listenRef = useRef(voice.listen);
+  const cancelRef = useRef(voice.cancel);
+  useEffect(() => { speakRef.current  = voice.speak;  }, [voice.speak]);
+  useEffect(() => { listenRef.current = voice.listen; }, [voice.listen]);
+  useEffect(() => { cancelRef.current = voice.cancel; }, [voice.cancel]);
+
+  // Loop control
+  const runningRef        = useRef(false);
+  const currentUserTurnRef = useRef(0);
+
+  // UI refs
   const timerRef          = useRef<ReturnType<typeof setInterval> | null>(null);
   const transcriptRef     = useRef<TranscriptMessage[]>([]);
   const durationRef       = useRef(0);
   const transcriptEndRef  = useRef<HTMLDivElement>(null);
-  const statusRef         = useRef<string>('connecting');
-  const nextStartTimeRef  = useRef(0);
-
-  // ── Audio ──────────────────────────────────────────────────────────────────
-  const stopAudio = useCallback(() => {
-    if (playbackCtxRef.current) {
-      playbackCtxRef.current.close().catch(console.error);
-      playbackCtxRef.current = null;
-    }
-    if (audioCtxRef.current) {
-      audioCtxRef.current.close().catch(console.error);
-      audioCtxRef.current = null;
-    }
-    nextStartTimeRef.current = 0;
-  }, []);
-
-  // ── Vision ─────────────────────────────────────────────────────────────────
-  const stopVision = useCallback(() => {
-    if (visionStreamRef.current) {
-      visionStreamRef.current.getTracks().forEach((t) => t.stop());
-      visionStreamRef.current = null;
-    }
-    if (captureTimerRef.current) {
-      clearInterval(captureTimerRef.current);
-      captureTimerRef.current = null;
-    }
-    setVisionMode('off');
-  }, []);
-
-  const startVisionCapture = useCallback(() => {
-    if (captureTimerRef.current) clearInterval(captureTimerRef.current);
-
-    // Set canvas dimensions once when capture starts, not on every frame
-    const canvas = captureCanvasRef.current!;
-    const video  = videoRef.current!;
-    const ready  = () => {
-      if (video.videoWidth) {
-        canvas.width  = 480;
-        canvas.height = Math.round(480 / (video.videoWidth / video.videoHeight));
-      }
-    };
-    if (video.videoWidth) ready();
-    else video.addEventListener('loadedmetadata', ready, { once: true });
-
-    captureTimerRef.current = setInterval(() => {
-      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-      if (!video || !canvas || video.paused || video.ended || !canvas.width) return;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      // toBlob is async — doesn't block the main thread
-      canvas.toBlob((blob) => {
-        if (!blob || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-        blob.arrayBuffer().then((ab) => {
-          const b64 = btoa(String.fromCharCode(...new Uint8Array(ab)));
-          wsRef.current!.send(JSON.stringify({ type: 'image', data: b64, mimeType: 'image/jpeg' }));
-        });
-      }, 'image/jpeg', 0.4);
-    }, 3000); // 3s is plenty for vision context
-  }, []);
-
-
-  const startScreenShare = async () => {
-    stopVision();
-    try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-      visionStreamRef.current = stream;
-      if (videoRef.current) videoRef.current.srcObject = stream;
-      setVisionMode('screen');
-      startVisionCapture();
-      stream.getVideoTracks()[0].onended = () => stopVision();
-    } catch (err) { console.error('Screen share error:', err); }
-  };
+  const connectedRef      = useRef(false);
 
   // Auto-scroll in chat mode
   useEffect(() => {
@@ -447,10 +381,8 @@ function InterviewContent() {
     }
   }, [transcript, viewMode]);
 
-
-  // ── Timer ──────────────────────────────────────────────────────────────────
   const startTimer = useCallback(() => {
-    if (timerRef.current) return; // guard: only start once
+    if (timerRef.current) return;
     timerRef.current = setInterval(() => {
       durationRef.current += 1;
       setDuration((d) => d + 1);
@@ -463,173 +395,157 @@ function InterviewContent() {
     return `${m}:${sec}`;
   };
 
-  // ── PCM helpers ────────────────────────────────────────────────────────────
-  const floatToPCM16 = (floatSamples: Float32Array): Int16Array => {
-    const pcm = new Int16Array(floatSamples.length);
-    for (let i = 0; i < floatSamples.length; i++) {
-      const s = Math.max(-1, Math.min(1, floatSamples[i]));
-      pcm[i]  = s < 0 ? s * 32768 : s * 32767;
-    }
-    return pcm;
-  };
-
-  const toBase64 = (buffer: ArrayBuffer) => {
-    const bytes = new Uint8Array(buffer);
-    let binary  = '';
-    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-    return btoa(binary);
-  };
-
-  // ── Microphone ────────────────────────────────────────────────────────────
-  const initMicrophone = useCallback(async () => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-    if (!navigator.mediaDevices?.getUserMedia) {
-      console.error('Mic unavailable: page must be served over localhost or HTTPS');
-      return;
-    }
-    try {
-      const stream  = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 16000, channelCount: 1 } });
-      streamRef.current = stream;
-      const audioCtx   = new AudioContext({ sampleRate: 16000 });
-      audioCtxRef.current = audioCtx;
-      const source     = audioCtx.createMediaStreamSource(stream);
-      sourceRef.current = source;
-      const processor  = audioCtx.createScriptProcessor(4096, 1, 1);
-      processorRef.current = processor;
-
-      processor.onaudioprocess = (e) => {
-        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-        if (statusRef.current !== 'connected') return;
-        const samples = e.inputBuffer.getChannelData(0);
-        const pcm     = floatToPCM16(samples);
-        const b64     = toBase64(pcm.buffer as ArrayBuffer);
-        wsRef.current.send(JSON.stringify({ type: 'audio', data: b64 }));
-      };
-      source.connect(processor);
-      processor.connect(audioCtx.destination);
-    } catch (err) { console.error('Mic error:', err); }
+  // Upsert a transcript entry keyed by (role, turnId).
+  const upsertTranscript = useCallback((role: 'user' | 'agent', turnId: number, text: string) => {
+    const isUser = role === 'user';
+    setTranscript((prev) => {
+      // Find the last bubble for this role+turn
+      const idx = prev.findIndex(m => m.isUser === isUser && m.turnId === turnId);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], text };
+        transcriptRef.current = next;
+        return next;
+      }
+      const appended = [
+        ...prev,
+        { text, isUser, timestamp: Date.now(), turnId },
+      ];
+      transcriptRef.current = appended;
+      return appended;
+    });
   }, []);
 
-  // ── WebSocket ─────────────────────────────────────────────────────────────
+  // Detects when the AI introduces a new DSA problem and re-fetches.
+  const handleDsaProblemTransition = useCallback(async (aiTurnText: string) => {
+    const lower = aiTurnText.toLowerCase();
+    if (!NEW_PROBLEM_PHRASES.some(p => lower.includes(p))) return;
+    try {
+      const res = await fetch('/api/generate-dsa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contextHint: aiTurnText }),
+      });
+      if (!res.ok) return;
+      const problem = await res.json();
+      if (problem && problem.title) setDsaProblem(problem);
+    } catch (e) {
+      console.error('[DSA] transition problem fetch failed', e);
+    }
+  }, []);
+
+  // Stream interim STT text into the active user bubble while listening.
+  useEffect(() => {
+    if (voice.phase !== 'listening') return;
+    if (!voice.interimTranscript) return;
+    upsertTranscript('user', currentUserTurnRef.current, voice.interimTranscript);
+  }, [voice.interimTranscript, voice.phase, upsertTranscript]);
+
   const connect = useCallback(async () => {
     try {
-      const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      const wsUrl = `${wsProtocol}://${window.location.host}/api/ws?type=${encodeURIComponent(interviewType)}&personality=${encodeURIComponent(personality)}`;
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
+      // Kick off DSA problem fetch in parallel (only for DSA)
+      const problemPromise: Promise<DSAProblem | null> = interviewType === 'DSA'
+        ? fetch('/api/generate-dsa', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+          })
+            .then((r) => (r.ok ? r.json() : null))
+            .catch((e) => {
+              console.error('[DSA] initial problem fetch failed', e);
+              return null;
+            })
+        : Promise.resolve(null);
 
-      ws.onopen = () => {
-        console.log('[WS] Socket open — waiting for Gemini session...');
-      };
+      const problem = await problemPromise;
+      if (problem && problem.title) setDsaProblem(problem);
 
-      ws.onmessage = async (event) => {
-        const msg = JSON.parse(event.data);
+      const dsaContext = problem && problem.title
+        ? { title: problem.title, description: problem.description }
+        : null;
+      const systemPrompt = buildSystemPrompt(interviewType, personality, dsaContext);
+      const greeting     = buildGreeting(interviewType, personality, dsaContext);
 
-        if (msg.type === 'status' && msg.status === 'connected') {
-          console.log('[WS] Gemini ready — starting mic + playback ctx');
-          // Create playback AudioContext eagerly so it's ready before audio arrives
-          if (!playbackCtxRef.current) {
-            playbackCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-            nextStartTimeRef.current = 0;
+      const chatHistory: ChatMessage[] = [
+        { role: 'system', content: systemPrompt },
+        { role: 'assistant', content: greeting },
+      ];
+
+      let agentTurn = 0;
+      let userTurn  = 0;
+
+      // Seed transcript with the greeting and start the clock.
+      setLastSpeaker('ai');
+      upsertTranscript('agent', agentTurn, greeting);
+      runningRef.current   = true;
+      connectedRef.current = true;
+      setStatus('connected');
+      startTimer();
+
+      await speakRef.current(greeting);
+      if (interviewType === 'DSA') handleDsaProblemTransition(greeting);
+
+      while (runningRef.current) {
+        userTurn += 1;
+        currentUserTurnRef.current = userTurn;
+        setLastSpeaker('user');
+
+        const userText = await listenRef.current();
+        if (!runningRef.current) break;
+        if (!userText) {
+          // Empty turn (silence/no permission) — back to listening.
+          continue;
+        }
+        upsertTranscript('user', userTurn, userText);
+        chatHistory.push({ role: 'user', content: userText });
+
+        // Ask Groq for the next interviewer line.
+        let assistantText = '';
+        try {
+          const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messages: chatHistory,
+              maxTokens: 400,
+              temperature: 0.7,
+            }),
+          });
+          if (res.ok) {
+            const data = (await res.json()) as { content?: string };
+            assistantText = (data.content ?? '').trim();
+          } else {
+            console.error('[interview] /api/chat', res.status, await res.text());
           }
-          playbackCtxRef.current.resume().catch(() => {});
-          setStatus('connected');
-          statusRef.current = 'connected';
-          startTimer();
-          initMicrophone();
-          return;
+        } catch (e) {
+          console.error('[interview] /api/chat failed', e);
         }
 
-        if (msg.type === 'problem') {
-          setDsaProblem(msg.problem);
-          return;
-        }
+        if (!runningRef.current) break;
+        if (!assistantText) assistantText = 'One moment — let me rephrase that.';
 
-        if (msg.type === 'error') {
-          console.error('[WS] Error from server:', msg.message);
-          setStatus('error');
-          return;
-        }
+        agentTurn += 1;
+        setLastSpeaker('ai');
+        upsertTranscript('agent', agentTurn, assistantText);
+        chatHistory.push({ role: 'assistant', content: assistantText });
 
-        if (msg.type === 'turn_complete') {
-          console.log('[WS] AI turn complete');
-        }
+        if (interviewType === 'DSA') handleDsaProblemTransition(assistantText);
 
-        if (msg.type === 'audio' && msg.data) {
-          console.log('[Audio] Chunk received, bytes:', Math.round(msg.data.length * 0.75));
-          try {
-            const raw  = atob(msg.data);
-            const buf  = new ArrayBuffer(raw.length);
-            const view = new Uint8Array(buf);
-            for (let i = 0; i < raw.length; i++) view[i] = raw.charCodeAt(i);
+        await speakRef.current(assistantText);
+      }
+    } catch (err) {
+      console.error('[interview] connect failed', err);
+      setStatus('error');
+    }
+  }, [interviewType, personality, startTimer, upsertTranscript, handleDsaProblemTransition]);
 
-            // Use a dedicated 24kHz playback context — never share with mic context
-            if (!playbackCtxRef.current) {
-              playbackCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-              nextStartTimeRef.current = 0;
-            }
-            const actx = playbackCtxRef.current;
-            console.log('[Audio] AudioCtx state:', actx.state, '| scheduleAt:', nextStartTimeRef.current.toFixed(3));
-            if (actx.state === 'suspended') await actx.resume();
-
-            const samples = new Int16Array(buf);
-            const float   = new Float32Array(samples.length);
-            for (let i = 0; i < samples.length; i++) float[i] = samples[i] / 32768;
-            const audioBuf = actx.createBuffer(1, float.length, 24000);
-            audioBuf.copyToChannel(float, 0);
-            const src = actx.createBufferSource();
-            src.buffer = audioBuf;
-            src.connect(actx.destination);
-            const now = actx.currentTime;
-            if (nextStartTimeRef.current < now) nextStartTimeRef.current = now;
-            src.start(nextStartTimeRef.current);
-            nextStartTimeRef.current += audioBuf.duration;
-          } catch (e) { console.error('Playback error:', e); }
-        }
-
-        if (msg.type === 'user_transcript' && msg.text) {
-          setLastSpeaker('user');
-          setTranscript((prev) => {
-            const last = prev[prev.length - 1];
-            if (last?.isUser) {
-              const updated = [...prev.slice(0, -1), { ...last, text: last.text + ' ' + msg.text }];
-              transcriptRef.current = updated;
-              return updated;
-            }
-            const updated = [...prev, { text: msg.text, isUser: true, timestamp: Date.now() }];
-            transcriptRef.current = updated;
-            return updated;
-          });
-        }
-
-        if (msg.type === 'ai_transcript' && msg.text) {
-          setLastSpeaker('ai');
-          setTranscript((prev) => {
-            const last = prev[prev.length - 1];
-            if (last && !last.isUser) {
-              const updated = [...prev.slice(0, -1), { ...last, text: last.text + ' ' + msg.text }];
-              transcriptRef.current = updated;
-              return updated;
-            }
-            const updated = [...prev, { text: msg.text, isUser: false, timestamp: Date.now() }];
-            transcriptRef.current = updated;
-            return updated;
-          });
-        }
-      };
-
-      ws.onclose = () => {
-        if (statusRef.current !== 'error') setStatus('ended');
-      };
-      ws.onerror = () => {
-        statusRef.current = 'error';
-        setStatus('error');
-      };
-    } catch (e) { setStatus('error'); }
-  }, [interviewType, personality, startTimer, initMicrophone]);
+  const teardown = useCallback(() => {
+    runningRef.current   = false;
+    connectedRef.current = false;
+    try { cancelRef.current(); } catch {}
+  }, []);
 
   useEffect(() => {
-    // Guard against React StrictMode double-invoke
     let cancelled = false;
     const timeout = setTimeout(() => {
       if (!cancelled) connect();
@@ -637,60 +553,54 @@ function InterviewContent() {
     return () => {
       cancelled = true;
       clearTimeout(timeout);
-      wsRef.current?.close();
-      processorRef.current?.disconnect();
-      sourceRef.current?.disconnect();
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-      visionStreamRef.current?.getTracks().forEach((t) => t.stop());
       if (timerRef.current) clearInterval(timerRef.current);
-      if (captureTimerRef.current) clearInterval(captureTimerRef.current);
-      stopAudio();
+      teardown();
     };
-  }, [connect, stopAudio]);
+  }, [connect, teardown]);
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
   const handleEndInterview = async () => {
     setIsGenerating(true);
-    statusRef.current = 'ended';
-    stopAudio();
-    stopVision();
-    wsRef.current?.send(JSON.stringify({ type: 'end' }));
+    setStatus('ended');
+    await teardown();
     try {
       const res = await fetch('/api/scorecard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: interviewType, personality, durationSeconds: durationRef.current, transcript: transcriptRef.current }),
+        body: JSON.stringify({
+          type: interviewType,
+          personality,
+          durationSeconds: durationRef.current,
+          transcript: transcriptRef.current,
+        }),
       });
       const scorecard = await res.json();
       sessionStorage.setItem('scorecard', JSON.stringify(scorecard));
-      sessionStorage.setItem('interviewMeta', JSON.stringify({ type: interviewType, personality, duration: durationRef.current }));
-      // Persist to localStorage history
+      sessionStorage.setItem('interviewMeta', JSON.stringify({
+        type: interviewType, personality, duration: durationRef.current,
+      }));
       try {
-        const entry = { id: `${Date.now()}`, timestamp: Date.now(), type: interviewType, personality, durationSeconds: durationRef.current, scorecard, transcript: transcriptRef.current };
+        const entry = {
+          id: `${Date.now()}`,
+          timestamp: Date.now(),
+          type: interviewType,
+          personality,
+          durationSeconds: durationRef.current,
+          scorecard,
+          transcript: transcriptRef.current,
+        };
         const prev = JSON.parse(localStorage.getItem('interview_history') || '[]');
         localStorage.setItem('interview_history', JSON.stringify([entry, ...prev].slice(0, 50)));
       } catch {}
       router.push('/scorecard');
-    } catch (err) { setIsGenerating(false); }
+    } catch (err) {
+      console.error(err);
+      setIsGenerating(false);
+    }
   };
 
-  const handleSendText = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!userInput.trim() || status !== 'connected') return;
-    wsRef.current?.send(JSON.stringify({ type: 'text', text: userInput }));
-    setTranscript((prev) => [...prev, { text: userInput, isUser: true, timestamp: Date.now() }]);
-    setLastSpeaker('user');
-    setUserInput('');
-  };
+  const handleExit = () => { teardown(); router.push('/'); };
 
-  const handleExit = () => { stopAudio(); stopVision(); router.push('/'); };
-
-  // ── Derived state ─────────────────────────────────────────────────────────
   const lastTwo = transcript.slice(-2);
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // SHARED PIECES
-  // ─────────────────────────────────────────────────────────────────────────────
 
   const EndButton = isGenerating ? (
     <div className="neural-glass rounded-2xl px-7 py-3.5 flex items-center gap-3 border border-primary/20">
@@ -711,18 +621,11 @@ function InterviewContent() {
     </button>
   );
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // TOP BAR
-  // ─────────────────────────────────────────────────────────────────────────────
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const TopBar = useMemo(() => (
     <header className="w-full flex items-center justify-between z-30 relative flex-shrink-0">
-      {/* Left: logo + session info + vision controls */}
       <div className="flex items-center gap-2">
-        {/* Crux logo mark */}
         <img src="/crux-icon.svg" alt="Crux.ai" className="w-8 h-8 rounded-lg shrink-0" />
-
-        {/* Session pill */}
         <div className="neural-glass h-10 px-4 rounded-2xl flex items-center gap-3">
           <div
             className={`w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0 ${
@@ -736,40 +639,18 @@ function InterviewContent() {
             <span className="text-xs font-bold text-white leading-none">{interviewType}</span>
           </div>
         </div>
-
-        {/* Personality chip */}
         <div className="neural-glass h-10 px-3 rounded-xl items-center hidden sm:flex">
           <span className="text-[9px] font-black uppercase tracking-widest text-secondary">
             {personality}
           </span>
         </div>
-
-        {/* Screen share control */}
-        <button
-          onClick={visionMode === 'screen' ? stopVision : startScreenShare}
-          className={`tactile-button h-10 px-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center ${
-            visionMode === 'screen'
-              ? 'bg-secondary/15 text-secondary border border-secondary/30'
-              : 'neural-glass text-text-dim hover:text-white'
-          }`}
-        >
-          {visionMode === 'screen' ? (
-            <span className="flex items-center gap-1.5">
-              <span className="w-1 h-1 rounded-full bg-secondary animate-pulse" />
-              Screen Live
-            </span>
-          ) : 'Share Screen'}
-        </button>
       </div>
 
-      {/* Right: mode toggle + timer + exit */}
       <div className="flex items-center gap-2">
         <ModeToggle mode={viewMode} onChange={setViewMode} />
-
         <div className="neural-glass h-10 px-5 rounded-2xl flex items-center font-mono text-lg font-black tracking-tight text-primary tabular-nums">
           {formatDuration(duration)}
         </div>
-
         <button
           onClick={handleExit}
           className="tactile-button w-10 h-10 neural-glass rounded-xl flex items-center justify-center text-text-dim hover:text-white transition-all"
@@ -782,18 +663,12 @@ function InterviewContent() {
       </div>
     </header>
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [status, visionMode, viewMode, duration, interviewType, personality]);
+  ), [status, viewMode, duration, interviewType, personality]);
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // CHAT MODE
-  // ─────────────────────────────────────────────────────────────────────────────
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const ChatMode = useMemo(() => (
     <div className="flex flex-col md:flex-row flex-1 gap-4 min-h-0 overflow-hidden mt-4">
-
-      {/* Left column: small orb + controls */}
       <aside className="flex flex-col items-center gap-4 md:w-52 shrink-0">
-        {/* Orb container with glow */}
         <div className="relative flex items-center justify-center">
           <div
             className={`absolute rounded-full blur-2xl opacity-25 transition-colors duration-1000 pointer-events-none
@@ -802,10 +677,7 @@ function InterviewContent() {
           />
           <NeuralOrb lastSpeaker={lastSpeaker} size="small" className="relative z-10" />
         </div>
-
         <SpeakerPill lastSpeaker={lastSpeaker} personality={personality} />
-
-        {/* Connection status */}
         <div className="neural-glass px-3 py-1.5 rounded-xl flex items-center gap-2">
           <div
             className={`w-1.5 h-1.5 rounded-full ${
@@ -820,15 +692,10 @@ function InterviewContent() {
              status.toUpperCase()}
           </span>
         </div>
-
-        {/* End button — desktop only, sits under orb */}
         <div className="hidden md:block mt-auto">{EndButton}</div>
       </aside>
 
-      {/* Right column: problem panel (pinned) + transcript feed */}
       <div className="flex-1 flex flex-col min-h-0 neural-glass rounded-3xl overflow-hidden border border-white/[0.06]">
-
-        {/* DSA Problem panel — pinned at top, own scroll, never buried in transcript */}
         {interviewType === 'DSA' && dsaProblem && (
           <div
             className="overflow-y-auto flex-shrink-0 border-b border-primary/[0.15] animate-in fade-in slide-in-from-top-2 duration-500"
@@ -837,8 +704,6 @@ function InterviewContent() {
             <ProblemCard key={dsaProblem.title} problem={dsaProblem} />
           </div>
         )}
-
-        {/* Transcript header strip */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.05] flex-shrink-0">
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_6px_#6366F1]" />
@@ -850,8 +715,6 @@ function InterviewContent() {
             {transcript.length} msg{transcript.length !== 1 ? 's' : ''}
           </span>
         </div>
-
-        {/* Scrollable messages */}
         <div className="flex-1 overflow-y-auto p-5 space-y-5 scroll-smooth">
           {transcript.length === 0 && (
             <div className="flex flex-col items-center justify-center h-full py-16 text-center opacity-25">
@@ -862,45 +725,20 @@ function InterviewContent() {
             </div>
           )}
           {transcript.map((msg, i) => (
-            <TranscriptBubble key={msg.timestamp} msg={msg} isLatest={i === transcript.length - 1} />
+            <TranscriptBubble key={`${msg.isUser ? 'u' : 'a'}-${msg.turnId ?? msg.timestamp}`} msg={msg} isLatest={i === transcript.length - 1} />
           ))}
           <div ref={transcriptEndRef} />
         </div>
-
-        {/* Input bar */}
-        <div className="border-t border-white/[0.05] p-3 flex-shrink-0">
-          <form onSubmit={handleSendText} className="flex gap-2">
-            <input
-              type="text"
-              value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
-              placeholder="Type a response or speak..."
-              className="flex-1 h-11 bg-white/[0.04] border border-white/[0.07] rounded-xl px-4 text-sm text-white placeholder:text-text-dim focus:outline-none focus:border-primary/40 transition-all"
-            />
-            <button
-              type="submit"
-              className="tactile-button h-11 px-5 neural-glass rounded-xl text-[10px] font-black uppercase tracking-widest text-text-dim hover:text-primary hover:border-primary/30 transition-all"
-            >
-              Send
-            </button>
-          </form>
-        </div>
       </div>
 
-      {/* End button row — mobile only */}
       <div className="flex justify-center md:hidden">{EndButton}</div>
     </div>
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [transcript, lastSpeaker, status, userInput, isGenerating, visionMode, personality, dsaProblem]);
+  ), [transcript, lastSpeaker, status, isGenerating, personality, dsaProblem]);
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // IMMERSIVE MODE
-  // ─────────────────────────────────────────────────────────────────────────────
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const ImmersiveMode = useMemo(() => (
     <div className="flex flex-col flex-1 items-center justify-center min-h-0 relative overflow-hidden">
-
-      {/* ── Deep space atmosphere — reacts to speaker ── */}
       <div
         className="absolute inset-0 pointer-events-none transition-all duration-[1800ms]"
         style={{
@@ -909,20 +747,16 @@ function InterviewContent() {
             : 'radial-gradient(ellipse 75% 65% at 50% 32%, rgba(99,102,241,0.13) 0%, rgba(99,102,241,0.04) 55%, transparent 80%)',
         }}
       />
-      {/* Floor fade */}
       <div
         className="absolute bottom-0 left-0 right-0 h-2/5 pointer-events-none"
         style={{ background: 'linear-gradient(to top, rgba(7,7,11,0.85) 0%, transparent 100%)' }}
       />
-      {/* Scanline texture */}
       <div
         className="absolute inset-0 pointer-events-none opacity-[0.02]"
         style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.5) 2px, rgba(255,255,255,0.5) 3px)', backgroundSize: '100% 3px' }}
       />
 
-      {/* ── ORB STAGE ── */}
       <div className="relative flex items-center justify-center mb-6 z-10">
-        {/* Outermost haze */}
         <div
           className="absolute rounded-full pointer-events-none transition-colors duration-[2000ms]"
           style={{
@@ -933,7 +767,6 @@ function InterviewContent() {
             filter: 'blur(36px)',
           }}
         />
-        {/* Mid bloom */}
         <div
           className="absolute rounded-full pointer-events-none transition-colors duration-[1500ms]"
           style={{
@@ -944,7 +777,6 @@ function InterviewContent() {
             filter: 'blur(18px)',
           }}
         />
-        {/* Concentric pulse rings */}
         {([0, 0.75, 1.5] as number[]).map((delay, i) => (
           <div
             key={i}
@@ -956,7 +788,6 @@ function InterviewContent() {
             }}
           />
         ))}
-        {/* Orbital rim ring */}
         <div
           className="absolute rounded-full pointer-events-none transition-all duration-700"
           style={{
@@ -970,7 +801,6 @@ function InterviewContent() {
         <NeuralOrb lastSpeaker={lastSpeaker} size="large" className="relative z-10 animate-breathe" />
       </div>
 
-      {/* ── SPEAKER INDICATOR — minimal with waveform ── */}
       <div className="flex flex-col items-center gap-2 mb-7 z-10">
         <div className="flex items-center gap-3">
           <div className="h-px transition-all duration-700"
@@ -986,7 +816,6 @@ function InterviewContent() {
             style={{ color: lastSpeaker === 'user' ? '#2DD4BF' : '#94A3B8' }}>
             {lastSpeaker === 'user' ? 'You' : personality}
           </span>
-          {/* Mini waveform bars */}
           <div className="flex items-end gap-[2px]" style={{ height: '14px' }}>
             {([9, 13, 7, 14, 10, 6, 12] as number[]).map((h, i) => (
               <div key={i} className="rounded-full animate-pulse flex-shrink-0"
@@ -1009,7 +838,6 @@ function InterviewContent() {
         </p>
       </div>
 
-      {/* ── TRANSCRIPT — cinematic subtitle style ── */}
       <div className="w-full max-w-xl px-8 flex flex-col items-center gap-5 z-10">
         {lastTwo.length === 0 ? (
           <div className="flex items-center gap-3">
@@ -1022,7 +850,7 @@ function InterviewContent() {
             const isLatest = i === lastTwo.length - 1;
             const isAI = !msg.isUser;
             return (
-              <div key={msg.timestamp} className="w-full text-center"
+              <div key={`${msg.isUser ? 'u' : 'a'}-${msg.turnId ?? msg.timestamp}`} className="w-full text-center"
                 style={{
                   opacity: isLatest ? 1 : 0.28,
                   transform: isLatest ? 'translateY(0) scale(1)' : 'translateY(-6px) scale(0.96)',
@@ -1048,22 +876,13 @@ function InterviewContent() {
         )}
       </div>
 
-      {/* ── END BUTTON — ghost, bottom anchored ── */}
       <div className="mt-auto pt-6 pb-1 z-10">{EndButton}</div>
     </div>
   // eslint-disable-next-line react-hooks/exhaustive-deps
   ), [lastTwo, lastSpeaker, isGenerating, personality]);
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // ROOT
-  // ─────────────────────────────────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 bg-background flex flex-col overflow-hidden">
-      {/* Hidden capture elements */}
-      <video ref={videoRef} autoPlay playsInline muted className="hidden" />
-      <canvas ref={captureCanvasRef} className="hidden" />
-
-      {/* Ambient mesh background */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden>
         <div className="absolute top-[-15%] left-[-5%] w-[45%] h-[45%] bg-primary/[0.07] blur-[140px] rounded-full animate-neural-float" />
         <div
@@ -1076,44 +895,12 @@ function InterviewContent() {
         />
       </div>
 
-      {/* Scan line */}
       <div className="fixed inset-0 pointer-events-none after-scan" aria-hidden />
 
-      {/* Vision preview — fixed in corner, always on top */}
-      {visionMode !== 'off' && (
-        <div className="fixed top-[72px] right-4 w-44 h-28 rounded-2xl overflow-hidden border border-white/10 shadow-2xl z-50 animate-in slide-in-from-right-6 duration-500 group">
-          <video
-            ref={(el) => {
-              if (el && visionStreamRef.current) el.srcObject = visionStreamRef.current;
-            }}
-            autoPlay
-            playsInline
-            muted
-            className="w-full h-full object-cover grayscale brightness-60 group-hover:grayscale-0 group-hover:brightness-90 transition-all duration-500"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-          <div className="absolute bottom-1.5 left-2 text-[8px] font-black uppercase tracking-tight text-white/70">
-            Live_{visionMode.toUpperCase()}
-          </div>
-          <button
-            onClick={stopVision}
-            className="absolute top-1.5 right-1.5 w-5 h-5 rounded-md bg-black/50 backdrop-blur-sm flex items-center justify-center text-white/50 hover:text-white transition-colors"
-          >
-            <svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M2 2l8 8M10 2l-8 8" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
-      )}
-
-      {/* Main layout */}
       <div className="relative z-10 flex flex-col h-full px-5 pt-5 pb-5 md:px-8 md:pt-6 md:pb-6">
         {TopBar}
 
-        {/* Mode-switching content — absolute stacked panels, CSS opacity + transform transition */}
         <div className="flex-1 min-h-0 relative">
-
-          {/* CHAT MODE PANEL */}
           <div
             className="absolute inset-0 flex flex-col overflow-hidden"
             style={{
@@ -1125,8 +912,6 @@ function InterviewContent() {
           >
             {ChatMode}
           </div>
-
-          {/* IMMERSIVE MODE PANEL */}
           <div
             className="absolute inset-0 flex flex-col overflow-hidden"
             style={{
@@ -1144,7 +929,6 @@ function InterviewContent() {
   );
 }
 
-// ─── Page Export ──────────────────────────────────────────────────────────────
 export default function InterviewPage() {
   return (
     <Suspense

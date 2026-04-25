@@ -1,7 +1,5 @@
-import { GoogleGenAI } from '@google/genai';
 import { NextRequest, NextResponse } from 'next/server';
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+import { callGroq } from '@/lib/groq';
 
 const FALLBACK = {
   clarity: 5,
@@ -43,20 +41,13 @@ Also write 3-4 specific, actionable coaching tips based on THIS interview — re
 Output ONLY a raw JSON object (no markdown, no explanation, no code fences):
 {"clarity": <1-10>, "confidence": <1-10>, "technical_depth": <1-10>, "conciseness": <1-10>, "suggestions": ["tip1", "tip2", "tip3"]}`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    });
+    const rawText = await callGroq(
+      [{ role: 'user', content: prompt }],
+      { maxTokens: 700, temperature: 0.4 },
+    );
 
-    // Robustly extract text — handles both string getter and deep path (SDK version differences)
-    const rawText: string =
-      typeof response.text === 'string'
-        ? response.text
-        : (response as any)?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+    console.log('[Scorecard] Raw Groq response:', rawText.slice(0, 300));
 
-    console.log('[Scorecard] Raw Gemini response:', rawText.slice(0, 300));
-
-    // Extract the JSON object even if Gemini wraps it in text or code fences
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       console.error('[Scorecard] No JSON found in response:', rawText);
@@ -64,7 +55,6 @@ Output ONLY a raw JSON object (no markdown, no explanation, no code fences):
     }
 
     const raw = JSON.parse(jsonMatch[0]);
-    // Normalize snake_case → camelCase
     const scorecard = {
       ...raw,
       technicalDepth: raw.technicalDepth ?? raw.technical_depth ?? FALLBACK.technicalDepth,

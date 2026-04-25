@@ -24,6 +24,7 @@ export interface TranscriptMessage {
   text: string;
   isUser: boolean;
   timestamp: number;
+  turnId?: number;
 }
 
 export interface Scorecard {
