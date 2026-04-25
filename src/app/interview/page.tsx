@@ -346,13 +346,14 @@ function InterviewContent() {
   const interviewType  = params.get('type')        || 'DSA';
   const personality    = params.get('personality') || 'Friendly';
 
-  const [status, setStatus] = useState<'connecting' | 'connected' | 'ended' | 'error'>('connecting');
+  const [status, setStatus] = useState<'idle' | 'connecting' | 'connected' | 'ended' | 'error'>('idle');
   const [transcript, setTranscript]     = useState<TranscriptMessage[]>([]);
   const [duration, setDuration]         = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastSpeaker, setLastSpeaker]   = useState<'ai' | 'user' | null>('ai');
   const [viewMode, setViewMode]         = useState<'chat' | 'immersive'>('chat');
   const [dsaProblem, setDsaProblem]     = useState<DSAProblem | null>(null);
+  const [started, setStarted]           = useState(false);
 
   // Voice (Puter TTS + browser STT). Voice methods are stable across renders.
   const voice = useInterviewVoice(voiceForPersonality(personality as InterviewPersonality));
@@ -546,17 +547,14 @@ function InterviewContent() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    const timeout = setTimeout(() => {
-      if (!cancelled) connect();
-    }, 50);
+    if (!started) return;
+    setStatus('connecting');
+    connect();
     return () => {
-      cancelled = true;
-      clearTimeout(timeout);
       if (timerRef.current) clearInterval(timerRef.current);
       teardown();
     };
-  }, [connect, teardown]);
+  }, [started, connect, teardown]);
 
   const handleEndInterview = async () => {
     setIsGenerating(true);
@@ -925,6 +923,46 @@ function InterviewContent() {
           </div>
         </div>
       </div>
+
+      {!started && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-md">
+          <div className="neural-glass rounded-3xl border border-white/10 px-8 py-10 max-w-md w-[90%] flex flex-col items-center text-center gap-6 shadow-2xl">
+            <div className="w-16 h-16 rounded-2xl bg-primary/15 border border-primary/30 flex items-center justify-center">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
+                <path d="M19 10v2a7 7 0 01-14 0v-2" />
+                <line x1="12" y1="19" x2="12" y2="23" />
+                <line x1="8" y1="23" x2="16" y2="23" />
+              </svg>
+            </div>
+            <div className="flex flex-col gap-2">
+              <h2 className="text-2xl font-black text-white">Ready when you are</h2>
+              <p className="text-sm text-text-secondary leading-relaxed">
+                Click start to begin the {interviewType} interview with {personality} mode.
+                Your browser will ask for microphone access.
+              </p>
+              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-text-dim mt-2">
+                A Puter consent prompt may appear once — just click Continue.
+              </p>
+            </div>
+            <button
+              onClick={() => setStarted(true)}
+              className="tactile-button group relative overflow-hidden rounded-2xl px-8 py-4 bg-white w-full"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-primary to-secondary opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+              <span className="relative z-10 text-sm font-black uppercase tracking-[0.3em] text-background group-hover:text-white transition-colors">
+                Start Interview
+              </span>
+            </button>
+            <button
+              onClick={() => router.push('/')}
+              className="text-[10px] font-black uppercase tracking-[0.3em] text-text-dim hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
